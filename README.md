@@ -164,19 +164,19 @@ Open your browser at **[http://127.0.0.1:5001](http://127.0.0.1:5001)** and uplo
 
 The interface is structured into 5 cohesive modules:
 
-1. **📊 Gráficos de Análise**:
+1. **📊 Analysis Charts**:
    - **Confidence Doughnut**: Visual breakdown of high ($\ge 85\%$), medium ($60-84\%$), and low ($< 60\%$) confidence recognition.
    - **Line Density Histogram**: Bar chart depicting the word distribution across individual document lines.
-2. **🖼️ Inspeção Visual**:
+2. **🖼️ Visual Document Inspector**:
    - Original document rendered with an aligned SVG viewport.
    - Interactive bounding boxes with hover highlights and coordinate metadata.
    - Visibility toggle checkbox for quick comparison.
-3. **📄 Texto Extraído**:
+3. **📄 Extracted Text**:
    - Complete extracted document body.
-   - Quick **"Copiar Texto"** to clipboard and **"Baixar .TXT"** export buttons.
-4. **🔍 Linhas e Caixas**:
+   - Quick **"Copy Text"** to clipboard and **"Download .TXT"** export buttons.
+4. **🔍 Lines & Coordinates**:
    - Tabular breakdown of each detected line with exact polygon bounding boxes and confidence badges.
-5. **📦 JSON Estruturado**:
+5. **📦 Raw JSON Payload**:
    - Formatted syntax tree of the entire API payload with one-click copy.
 
 ---

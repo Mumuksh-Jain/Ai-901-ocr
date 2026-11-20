@@ -1,5 +1,5 @@
 // OCR Document Intelligence — Pure Vanilla JS Studio & Analytics Engine
-// Zero external module dependencies, zero rate limits
+// English UI, Zero external module dependencies, Zero cloud rate limits
 
 let currentData = null;
 let confidenceChartInstance = null;
@@ -19,7 +19,7 @@ function escapeHtml(value) {
 
 function handleFile(file) {
     if (!file.type.match(/image\/(png|jpeg|jpg|bmp|tiff)/i)) {
-        showError('Formato inválido. Por favor, envie uma imagem PNG, JPG, BMP ou TIFF.');
+        showError('Invalid format. Please upload a PNG, JPG, BMP, or TIFF image.');
         return;
     }
     hideError();
@@ -133,7 +133,7 @@ function initEvents() {
             e.stopPropagation();
             try {
                 const res = await fetch('/exemplos/documento_demo.png');
-                if (!res.ok) throw new Error('Não foi possível carregar a imagem de exemplo.');
+                if (!res.ok) throw new Error('Could not load the demo image.');
                 const blob = await res.blob();
                 const file = new File([blob], 'documento_demo.png', { type: 'image/png' });
                 const dt = new DataTransfer();
@@ -141,7 +141,7 @@ function initEvents() {
                 imageInputEl.files = dt.files;
                 handleFile(file);
             } catch (err) {
-                showError('Erro ao carregar documento de demonstração: ' + err.message);
+                showError('Error loading demo document: ' + err.message);
             }
         });
     }
@@ -151,7 +151,7 @@ function initEvents() {
             e.preventDefault();
             const file = imageInputEl.files[0];
             if (!file) {
-                showError('Selecione uma imagem para análise.');
+                showError('Please select an image for analysis.');
                 return;
             }
 
@@ -172,7 +172,7 @@ function initEvents() {
                 const apiResult = await res.json();
 
                 if (!apiResult.success) {
-                    showError(apiResult.error || 'Falha ao processar a imagem.');
+                    showError(apiResult.error || 'Failed to process image.');
                 } else {
                     currentData = apiResult;
                     renderResults(apiResult);
@@ -183,7 +183,7 @@ function initEvents() {
                     }
                 }
             } catch (err) {
-                showError('Erro de conexão com o servidor. Verifique se o backend está em execução.');
+                showError('Server connection error. Please verify the backend is running.');
             } finally {
                 if (loadingEl) loadingEl.style.display = 'none';
                 if (analyzeBtnEl) analyzeBtnEl.disabled = false;
@@ -222,7 +222,7 @@ function initEvents() {
         copyTextBtn.addEventListener('click', () => {
             if (!currentData || !currentData.content) return;
             navigator.clipboard.writeText(currentData.content);
-            alert('Texto copiado com sucesso!');
+            alert('Text copied to clipboard!');
         });
     }
 
@@ -234,7 +234,7 @@ function initEvents() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'texto_extraido_ocr.txt';
+            a.download = 'extracted_ocr_text.txt';
             a.click();
             URL.revokeObjectURL(url);
         });
@@ -245,7 +245,7 @@ function initEvents() {
         copyJsonBtn.addEventListener('click', () => {
             if (!currentData) return;
             navigator.clipboard.writeText(JSON.stringify(currentData, null, 2));
-            alert('JSON copiado com sucesso!');
+            alert('JSON copied to clipboard!');
         });
     }
 
@@ -270,7 +270,7 @@ function initEvents() {
 }
 
 /* ==========================================================================
-   RESULTS DASHBOARD & CHARTS
+   RESULTS DASHBOARD & CHARTS (ENGLISH)
    ========================================================================== */
 function renderResults(data) {
     const avgConf = typeof data.confidence === 'number' ? data.confidence : 0;
@@ -290,7 +290,7 @@ function renderResults(data) {
     if (kpiWordsEl) kpiWordsEl.textContent = totalWords.toLocaleString();
 
     const kpiCharsEl = el('kpiChars');
-    if (kpiCharsEl) kpiCharsEl.textContent = `${totalChars.toLocaleString()} caracteres totais`;
+    if (kpiCharsEl) kpiCharsEl.textContent = `${totalChars.toLocaleString()} total characters`;
 
     const kpiLinesEl = el('kpiLines');
     if (kpiLinesEl) kpiLinesEl.textContent = totalLines.toLocaleString();
@@ -306,11 +306,11 @@ function renderResults(data) {
 
     const contentAreaEl = el('contentArea');
     if (contentAreaEl) {
-        contentAreaEl.textContent = data.content || '(Nenhum texto detectado)';
+        contentAreaEl.textContent = data.content || '(No text detected)';
     }
 
     const badgeEl = el('linesCountBadge');
-    if (badgeEl) badgeEl.textContent = `${totalLines} linhas`;
+    if (badgeEl) badgeEl.textContent = `${totalLines} lines`;
 
     let linesHtml = '';
     if (data.lines && data.lines.length) {
@@ -329,7 +329,7 @@ function renderResults(data) {
             `;
         });
     } else {
-        linesHtml = '<p style="color:var(--text-muted);">Nenhuma linha identificada.</p>';
+        linesHtml = '<p style="color:var(--text-muted);">No lines identified.</p>';
     }
     const linesAreaEl = el('linesArea');
     if (linesAreaEl) linesAreaEl.innerHTML = linesHtml;
@@ -378,7 +378,7 @@ function renderAnalyticsCharts(data) {
         confidenceChartInstance = new Chart(ctxConf, {
             type: 'doughnut',
             data: {
-                labels: ['Alta (≥85%)', 'Média (60-84%)', 'Baixa (<60%)'],
+                labels: ['High (≥85%)', 'Medium (60-84%)', 'Low (<60%)'],
                 datasets: [{
                     data: [high, med, low],
                     backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
@@ -391,7 +391,14 @@ function renderAnalyticsCharts(data) {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
-                    legend: { position: 'bottom', labels: { font: { family: 'Inter', size: 12 } } }
+                    legend: { position: 'bottom', labels: { font: { family: 'Inter', size: 12 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(item) {
+                                return ` ${item.label}: ${item.raw} words`;
+                            }
+                        }
+                    }
                 },
                 cutout: '68%'
             }
@@ -408,9 +415,9 @@ function renderAnalyticsCharts(data) {
         linesChartInstance = new Chart(ctxLines, {
             type: 'bar',
             data: {
-                labels: lineLabels.length ? lineLabels : ['Linha 1'],
+                labels: lineLabels.length ? lineLabels : ['Line 1'],
                 datasets: [{
-                    label: 'Palavras por Linha',
+                    label: 'Words per Line',
                     data: lineWordCounts.length ? lineWordCounts : [0],
                     backgroundColor: '#3b82f6',
                     borderRadius: 4
@@ -489,7 +496,7 @@ function showTooltip(e, content, confidence) {
     const tooltip = el('hoverTooltip');
     if (!tooltip) return;
     const confPct = Math.round((confidence || 0) * 100);
-    tooltip.innerHTML = `<strong>${escapeHtml(content)}</strong><br><span style="opacity:0.8;">Confiança: ${confPct}%</span>`;
+    tooltip.innerHTML = `<strong>${escapeHtml(content)}</strong><br><span style="opacity:0.8;">Confidence: ${confPct}%</span>`;
     tooltip.style.display = 'block';
     positionTooltip(e);
 }

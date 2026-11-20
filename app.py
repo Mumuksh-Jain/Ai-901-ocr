@@ -1,4 +1,4 @@
-"""OCR: upload de imagem com extração de texto via OCR.space API."""
+"""OCR: image upload with text extraction via local Windows Media OCR and resilient fallbacks."""
 from io import BytesIO
 import logging
 import os
@@ -39,33 +39,33 @@ def sample_file(filename):
 def analyze():
     uploaded = request.files.get("image")
     if not uploaded or not uploaded.filename:
-        return jsonify({"success": False, "error": "Selecione uma imagem."}), 400
+        return jsonify({"success": False, "error": "Please select an image."}), 400
     extension = Path(uploaded.filename).suffix.lower().lstrip(".")
     if extension not in EXTENSIONS:
-        return jsonify({"success": False, "error": "Formato não suportado."}), 415
+        return jsonify({"success": False, "error": "Unsupported file format."}), 415
     content = uploaded.read()
     if not content:
-        return jsonify({"success": False, "error": "Arquivo vazio."}), 400
+        return jsonify({"success": False, "error": "Empty file uploaded."}), 400
     try:
         with Image.open(BytesIO(content)) as img:
             img.verify()
             if img.format not in VALID_FORMATS:
                 raise UnidentifiedImageError()
     except (UnidentifiedImageError, ValueError, OSError):
-        return jsonify({"success": False, "error": "O conteúdo enviado não é uma imagem válida."}), 415
+        return jsonify({"success": False, "error": "The uploaded file is not a valid image."}), 415
 
     try:
         return jsonify(run_ocr(content, filename=uploaded.filename))
     except RuntimeError as exc:
         return jsonify({"success": False, "error": str(exc)}), 400
     except Exception:
-        LOG.exception("Falha no serviço de OCR")
-        return jsonify({"success": False, "error": "Falha ao analisar a imagem no serviço de OCR."}), 502
+        LOG.exception("OCR service processing failure")
+        return jsonify({"success": False, "error": "Failed to analyze image with OCR engine."}), 502
 
 
 @app.errorhandler(413)
 def too_large(_error):
-    return jsonify({"success": False, "error": "Arquivo ultrapassa o limite configurado."}), 413
+    return jsonify({"success": False, "error": "File exceeds the configured size limit."}), 413
 
 
 if __name__ == "__main__":

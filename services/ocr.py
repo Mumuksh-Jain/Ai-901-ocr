@@ -1,4 +1,4 @@
-"""Serviço de OCR local nativo (offline, sem limite de taxa) com fallback resiliente."""
+"""Native local OCR service (offline, zero rate limits) with resilient fallback."""
 import asyncio
 from io import BytesIO
 import logging
@@ -10,7 +10,7 @@ LOG = logging.getLogger(__name__)
 
 
 def _run_windows_local_ocr(image_bytes: bytes) -> dict:
-    """Executa OCR localmente usando o motor nativo Windows.Media.Ocr (offline, sem limites de taxa)."""
+    """Executes OCR locally using native Windows.Media.Ocr engine (offline, zero rate limits)."""
     from winsdk.windows.graphics.imaging import BitmapDecoder
     from winsdk.windows.media.ocr import OcrEngine
     from winsdk.windows.storage.streams import DataWriter, InMemoryRandomAccessStream
@@ -29,7 +29,7 @@ def _run_windows_local_ocr(image_bytes: bytes) -> dict:
         if not engine and OcrEngine.available_recognizer_languages:
             engine = OcrEngine.try_create_from_language(OcrEngine.available_recognizer_languages[0])
         if not engine:
-            raise RuntimeError("Nenhum idioma suportado disponível no Windows OCR.")
+            raise RuntimeError("No supported language recognizer available in Windows OCR.")
         res = await engine.recognize_async(bitmap)
         return res, decoder.pixel_width, decoder.pixel_height
 
@@ -95,7 +95,7 @@ def _run_windows_local_ocr(image_bytes: bytes) -> dict:
 
 
 def get_demo_fallback(width: int = 780, height: int = 320) -> dict:
-    """Retorna dados estruturados de demonstração."""
+    """Returns structured demonstration data."""
     text = "DOCUMENTO DEMONSTRATIVO AI-901\nTeste de reconhecimento de texto\nExemplo sem processamento Azure"
     lines = [
         {
@@ -151,21 +151,21 @@ def get_demo_fallback(width: int = 780, height: int = 320) -> dict:
 
 
 def run_ocr(image_bytes: bytes, filename: str = "image.png") -> dict:
-    """Executa OCR local prioritário (offline, sem limite de taxa) e fallback transparente."""
+    """Executes high-priority local native OCR (offline, zero rate limits) with resilient fallback."""
     with Image.open(BytesIO(image_bytes)) as img:
         img_width, img_height = img.size
 
-    # 1. Tentativa com OCR nativo local (zero nuvem, zero rate limits)
+    # 1. Native local OCR (zero cloud, zero rate limits)
     try:
         return _run_windows_local_ocr(image_bytes)
     except Exception as local_err:
-        LOG.warning("OCR local indisponível, tentando fallback: %s", local_err)
+        LOG.warning("Local Windows OCR unavailable, attempting fallback: %s", local_err)
 
-    # 2. Fallback para demonstração se for o documento demo
+    # 2. Demo fallback if demo document
     if "demo" in filename.lower() or len(image_bytes) == 14432:
         return get_demo_fallback(img_width, img_height)
 
-    # 3. Fallback para OCR.space API caso configurado
+    # 3. Fallback to OCR.space API if configured
     api_key = os.getenv("OCR_SPACE_API_KEY", "").strip() or "helloworld"
     try:
         response = requests.post(
@@ -205,6 +205,6 @@ def run_ocr(image_bytes: bytes, filename: str = "image.png") -> dict:
                     "engine": "OCR.space API",
                 }
     except Exception as exc:
-        LOG.warning("Fallback OCR.space falhou: %s", exc)
+        LOG.warning("OCR.space fallback error: %s", exc)
 
     return get_demo_fallback(img_width, img_height)

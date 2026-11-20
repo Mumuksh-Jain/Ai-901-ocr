@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -54,29 +54,29 @@
                             <line x1="12" y1="3" x2="12" y2="15"></line>
                         </svg>
                     </div>
-                    <h3>Arraste e solte o documento aqui</h3>
-                    <p class="drop-hint">Suporta imagens em PNG, JPG, JPEG, BMP ou TIFF (Até 4 MB)</p>
+                    <h3>Drag and drop your document here</h3>
+                    <p class="drop-hint">Supports PNG, JPG, JPEG, BMP, or TIFF images (Up to 4 MB)</p>
                     <div class="drop-actions">
-                        <button type="button" class="btn btn-secondary btn-sm" id="selectFileBtn">Selecionar Arquivo</button>
-                        <button type="button" class="btn btn-outline btn-sm" id="loadSampleBtn">Testar Documento Demo</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="selectFileBtn">Browse File</button>
+                        <button type="button" class="btn btn-outline btn-sm" id="loadSampleBtn">Test Demo Document</button>
                     </div>
                     <div class="file-details" id="fileDetails" style="display:none;">
                         <span class="file-name-badge" id="fileName"></span>
-                        <button type="button" class="btn-clear" id="clearFileBtn" title="Remover imagem">&times;</button>
+                        <button type="button" class="btn-clear" id="clearFileBtn" title="Remove image">&times;</button>
                     </div>
-                    <img id="preview" class="preview-img" src="" alt="Prévia">
+                    <img id="preview" class="preview-img" src="" alt="Preview">
                 </div>
                 
                 <div class="submit-wrap">
                     <button type="submit" id="analyzeBtn" class="btn btn-primary btn-lg" disabled>
-                        <span class="btn-text">⚡ Analisar Documento</span>
+                        <span class="btn-text">⚡ Analyze Document</span>
                     </button>
                 </div>
             </form>
             
             <div id="loading" class="loading-state" style="display:none;">
                 <div class="loading-spinner"></div>
-                <p>Processando imagem e extraindo texto com OCR local...</p>
+                <p>Processing image and extracting text with local OCR...</p>
             </div>
 
             <div id="error" class="error-banner" style="display:none;"></div>
@@ -98,48 +98,48 @@
             <div class="kpi-grid">
                 <div class="kpi-card">
                     <div class="kpi-header">
-                        <span class="kpi-label">Confiança Média</span>
+                        <span class="kpi-label">Average Confidence</span>
                         <span class="kpi-icon" id="confIcon">🎯</span>
                     </div>
                     <div class="kpi-value" id="kpiConfidence">0%</div>
-                    <div class="kpi-sub" id="kpiConfidenceSub">Nível de certeza da extração</div>
+                    <div class="kpi-sub" id="kpiConfidenceSub">Extraction certainty score</div>
                 </div>
                 
                 <div class="kpi-card">
                     <div class="kpi-header">
-                        <span class="kpi-label">Palavras Identificadas</span>
+                        <span class="kpi-label">Identified Words</span>
                         <span class="kpi-icon">📝</span>
                     </div>
                     <div class="kpi-value" id="kpiWords">0</div>
-                    <div class="kpi-sub" id="kpiChars">0 caracteres totais</div>
+                    <div class="kpi-sub" id="kpiChars">0 total characters</div>
                 </div>
                 
                 <div class="kpi-card">
                     <div class="kpi-header">
-                        <span class="kpi-label">Linhas Detectadas</span>
+                        <span class="kpi-label">Detected Lines</span>
                         <span class="kpi-icon">📑</span>
                     </div>
                     <div class="kpi-value" id="kpiLines">0</div>
-                    <div class="kpi-sub">Segmentação de parágrafos</div>
+                    <div class="kpi-sub">Paragraph segmentation</div>
                 </div>
 
                 <div class="kpi-card">
                     <div class="kpi-header">
-                        <span class="kpi-label">Dimensões da Imagem</span>
+                        <span class="kpi-label">Image Dimensions</span>
                         <span class="kpi-icon">📐</span>
                     </div>
                     <div class="kpi-value" id="kpiDimensions">0 × 0</div>
-                    <div class="kpi-sub">Resolução em pixels (1 página)</div>
+                    <div class="kpi-sub">Pixel resolution (1 page)</div>
                 </div>
             </div>
 
             <!-- Dashboard Navigation Tabs -->
             <div class="tabs-nav">
-                <button class="tab-btn active" data-tab="tab-analytics">📊 Gráficos de Análise</button>
-                <button class="tab-btn" data-tab="tab-visual">🖼️ Inspeção Visual</button>
-                <button class="tab-btn" data-tab="tab-text">📄 Texto Extraído</button>
-                <button class="tab-btn" data-tab="tab-lines">🔍 Linhas e Caixas</button>
-                <button class="tab-btn" data-tab="tab-raw">📦 JSON Estruturado</button>
+                <button class="tab-btn active" data-tab="tab-analytics">📊 Visual Analytics</button>
+                <button class="tab-btn" data-tab="tab-visual">🖼️ Visual Inspection</button>
+                <button class="tab-btn" data-tab="tab-text">📄 Extracted Text</button>
+                <button class="tab-btn" data-tab="tab-lines">🔍 Lines & Coordinates</button>
+                <button class="tab-btn" data-tab="tab-raw">📦 Structured JSON</button>
             </div>
 
             <!-- Tab 1: Charts & Analytics -->
@@ -147,8 +147,8 @@
                 <div class="charts-grid">
                     <div class="chart-card">
                         <div class="chart-header">
-                            <h3>Distribuição de Confiança</h3>
-                            <span class="badge badge-info">Qualidade OCR</span>
+                            <h3>Confidence Distribution</h3>
+                            <span class="badge badge-info">OCR Quality</span>
                         </div>
                         <div class="chart-wrapper">
                             <canvas id="confidenceChart"></canvas>
@@ -157,8 +157,8 @@
 
                     <div class="chart-card">
                         <div class="chart-header">
-                            <h3>Densidade por Linha de Texto</h3>
-                            <span class="badge badge-info">Contagem de Palavras</span>
+                            <h3>Text Line Density</h3>
+                            <span class="badge badge-info">Word Count</span>
                         </div>
                         <div class="chart-wrapper">
                             <canvas id="linesChart"></canvas>
@@ -171,14 +171,14 @@
             <div class="tab-content" id="tab-visual">
                 <div class="visual-inspector-card">
                     <div class="inspector-controls">
-                        <span>Passe o mouse sobre os retângulos para inspecionar os elementos detectados.</span>
+                        <span>Hover over bounding boxes to inspect recognized elements.</span>
                         <label class="toggle-wrap">
                             <input type="checkbox" id="toggleBoxes" checked>
-                            <span>Exibir caixas delimitadoras</span>
+                            <span>Show bounding boxes</span>
                         </label>
                     </div>
                     <div class="visual-container" id="visualContainer">
-                        <img id="resultImage" src="" alt="Imagem analisada">
+                        <img id="resultImage" src="" alt="Analyzed document">
                         <svg id="boundingBoxOverlay" class="box-overlay"></svg>
                     </div>
                     <div id="hoverTooltip" class="box-tooltip" style="display:none;"></div>
@@ -189,10 +189,10 @@
             <div class="tab-content" id="tab-text">
                 <div class="text-card">
                     <div class="text-card-header">
-                        <h3>Conteúdo Textual Completo</h3>
+                        <h3>Full Extracted Text</h3>
                         <div class="text-actions">
-                            <button type="button" class="btn btn-secondary btn-sm" id="copyTextBtn">Copiar Texto</button>
-                            <button type="button" class="btn btn-outline btn-sm" id="downloadTextBtn">Baixar .TXT</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="copyTextBtn">Copy Text</button>
+                            <button type="button" class="btn btn-outline btn-sm" id="downloadTextBtn">Download .TXT</button>
                         </div>
                     </div>
                     <pre class="extracted-text-box" id="contentArea"></pre>
@@ -203,8 +203,8 @@
             <div class="tab-content" id="tab-lines">
                 <div class="breakdown-card">
                     <div class="breakdown-header">
-                        <h3>Detalhamento por Linha e Coordenadas</h3>
-                        <span class="badge badge-secondary" id="linesCountBadge">0 linhas</span>
+                        <h3>Line-by-Line Breakdown & Coordinates</h3>
+                        <span class="badge badge-secondary" id="linesCountBadge">0 lines</span>
                     </div>
                     <div class="lines-list" id="linesArea"></div>
                 </div>
@@ -214,8 +214,8 @@
             <div class="tab-content" id="tab-raw">
                 <div class="json-card">
                     <div class="json-card-header">
-                        <h3>Payload JSON da Resposta</h3>
-                        <button type="button" class="btn btn-secondary btn-sm" id="copyJsonBtn">Copiar JSON</button>
+                        <h3>Response JSON Payload</h3>
+                        <button type="button" class="btn btn-secondary btn-sm" id="copyJsonBtn">Copy JSON</button>
                     </div>
                     <pre class="json-box"><code id="rawJsonCode"></code></pre>
                 </div>
@@ -224,10 +224,10 @@
     </main>
 
     <footer class="app-footer">
-        <p>OCR Document Intelligence &bull; Desenvolvido com Flask &bull; Zero Cloud Lock-in</p>
+        <p>OCR Document Intelligence &bull; Powered by Flask & Local OCR &bull; Zero Cloud Lock-in</p>
     </footer>
 
     <!-- Main Logic & Interactive Dashboard -->
-    <script src="/static/js/script.js?v=3.0"></script>
+    <script src="/static/js/script.js?v=3.1"></script>
 </body>
 </html>
