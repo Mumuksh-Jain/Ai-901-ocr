@@ -1,13 +1,13 @@
-"""OCR: upload de imagem com processamento real no Azure ou demo sinalizada."""
+"""OCR: upload de imagem com extração de texto via OCR.space API."""
 from io import BytesIO
 import logging
 import os
 from pathlib import Path
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, send_from_directory
 from PIL import Image, UnidentifiedImageError
-from services.document_intelligence import analyze_document
+from services.ocr import run_ocr
 
 load_dotenv()
 LOG = logging.getLogger(__name__)
@@ -17,25 +17,14 @@ EXTENSIONS = {"png", "jpg", "jpeg", "bmp", "tiff", "tif"}
 VALID_FORMATS = {"PNG", "JPEG", "BMP", "TIFF"}
 
 
-def demo_result():
-    """Conteúdo fictício e fixo apenas para demonstrar a interface."""
-    text = "DOCUMENTO DEMONSTRATIVO AI-901\nTeste de reconhecimento de texto\nExemplo sem processamento Azure"
-    lines = [
-        {"content": "DOCUMENTO DEMONSTRATIVO AI-901", "bounding_box": [[25, 30], [550, 30], [550, 80], [25, 80]]},
-        {"content": "Teste de reconhecimento de texto", "bounding_box": [[25, 90], [480, 90], [480, 130], [25, 130]]},
-        {"content": "Exemplo sem processamento Azure", "bounding_box": [[25, 150], [500, 150], [500, 190], [25, 190]]},
-    ]
-    words = [{"content": word, "confidence": 0.99, "bounding_box": [[0, 0], [0, 0], [0, 0], [0, 0]]}
-             for word in text.split()]
-    return {"success": True, "demo": True,
-            "notice": "SIMULAÇÃO LOCAL: os textos são exemplos fixos; o arquivo enviado não foi submetido a OCR.",
-            "content": text, "pages": [{"page_number": 1, "width": 620, "height": 260, "unit": "pixel",
-                                        "lines": lines, "words": words}], "styles": []}
-
-
 @app.get("/")
 def index():
-    return render_template("index.html", demo_mode=os.getenv("APP_MODE", "demo").lower() != "azure")
+    return render_template("index.html")
+
+
+@app.get("/exemplos/<path:filename>")
+def sample_file(filename):
+    return send_from_directory("exemplos", filename)
 
 
 @app.post("/api/analyze")
@@ -57,15 +46,13 @@ def analyze():
     except (UnidentifiedImageError, ValueError, OSError):
         return jsonify({"success": False, "error": "O conteúdo enviado não é uma imagem válida."}), 415
 
-    if os.getenv("APP_MODE", "demo").lower() != "azure":
-        return jsonify(demo_result())
     try:
-        return jsonify(analyze_document(content))
+        return jsonify(run_ocr(content, filename=uploaded.filename))
     except RuntimeError as exc:
-        return jsonify({"success": False, "error": str(exc)}), 503
+        return jsonify({"success": False, "error": str(exc)}), 400
     except Exception:
-        LOG.exception("Falha no Document Intelligence")
-        return jsonify({"success": False, "error": "Falha ao analisar a imagem no serviço Azure."}), 502
+        LOG.exception("Falha no serviço de OCR")
+        return jsonify({"success": False, "error": "Falha ao analisar a imagem no serviço de OCR."}), 502
 
 
 @app.errorhandler(413)

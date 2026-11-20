@@ -3,50 +3,228 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OCR De Imagens</title>
+    <title>OCR Document Intelligence — Studio & Analytics</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <header>
-        <h1>OCR de Imagens</h1>
-        <p>Extraia informações de imagens usando Recurso Azure AI Document Intelligence</p>
+    <header class="app-header">
+        <div class="header-inner">
+            <div class="brand">
+                <div class="brand-logo">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                        <polyline points="10 9 9 9 8 9"></polyline>
+                    </svg>
+                </div>
+                <div>
+                    <div class="brand-title-wrap">
+                        <h1>OCR Document Intelligence</h1>
+                        <span class="badge badge-primary">v2.0 Free & Local API</span>
+                    </div>
+                    <p class="brand-subtitle">High-accuracy document text extraction, spatial bounding analysis, and statistical insights.</p>
+                </div>
+            </div>
+            <div class="header-status">
+                <span class="status-indicator"><span class="status-dot"></span> Engine Online</span>
+                <span class="badge badge-secondary">OCR.space API</span>
+            </div>
+        </div>
     </header>
     
-    <main>
-        {% if demo_mode %}<p style="color:#92400e;background:#fffbeb;padding:0.75rem;border:1px solid #facc15;border-radius:6px;margin-bottom:1rem;">DEMONSTRAÇÃO LOCAL — a análise retorna dados ilustrativos, não resultados reais do Azure.</p>{% endif %}
-        <section class="upload-area" id="uploadArea">
+    <main class="main-container">
+        <!-- Upload Section -->
+        <section class="upload-section" id="uploadArea">
             <form id="uploadForm" enctype="multipart/form-data">
                 <div class="drop-zone" id="dropZone">
-                    <input type="file" id="imageInput" name="image" accept=".png,.jpg,.jpeg,.bmp,.tiff" hidden>
-                    <p>Arraste uma imagem aqui ou clique para selecionar</p>
-                    <p class="file-name" id="fileName"></p>
+                    <input type="file" id="imageInput" name="image" accept=".png,.jpg,.jpeg,.bmp,.tiff,.tif" hidden>
+                    <div class="drop-icon">
+                        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                    </div>
+                    <h3>Arraste e solte o documento aqui</h3>
+                    <p class="drop-hint">Suporta imagens em PNG, JPG, JPEG, BMP ou TIFF (Até 4 MB)</p>
+                    <div class="drop-actions">
+                        <button type="button" class="btn btn-secondary btn-sm" id="selectFileBtn">Selecionar Arquivo</button>
+                        <button type="button" class="btn btn-outline btn-sm" id="loadSampleBtn">Testar Documento Demo</button>
+                    </div>
+                    <div class="file-details" id="fileDetails" style="display:none;">
+                        <span class="file-name-badge" id="fileName"></span>
+                        <button type="button" class="btn-clear" id="clearFileBtn" title="Remover imagem">&times;</button>
+                    </div>
                     <img id="preview" class="preview-img" src="" alt="Prévia">
                 </div>
-                <button type="submit" id="analyzeBtn">Analisar imagem</button>
+                
+                <div class="submit-wrap">
+                    <button type="submit" id="analyzeBtn" class="btn btn-primary btn-lg" disabled>
+                        <span class="btn-text">Analisar Documento</span>
+                        <span class="spinner" id="btnSpinner" style="display:none;"></span>
+                    </button>
+                </div>
             </form>
-            <div id="loading" style="display:none;">Analisando imagem...</div>
-            <div id="error" class="error-message" style="display:none;"></div>
+            
+            <div id="loading" class="loading-state" style="display:none;">
+                <div class="loading-spinner"></div>
+                <p>Processando imagem e extraindo camadas estruturadas...</p>
+            </div>
+            
+            <div id="error" class="error-banner" style="display:none;"></div>
         </section>
         
-        <div id="demoNotice" role="status" style="display:none; margin-top:1rem; padding:0.75rem; background:#fff4d6; border:1px solid #b45309; border-radius:6px;">Modo demonstração: texto ilustrativo, sem OCR real. Para usar o Azure, configure APP_MODE=azure.</div>
-        <section class="results" id="results" style="display:none;">
-            <div class="results-grid">
-                <div class="image-panel">
-                    <h2>Imagem Original</h2>
-                    <img id="resultImage" src="" alt="Imagem analisada">
+        <!-- Warning Banner for Low Confidence -->
+        <div id="confidenceWarning" class="warning-banner" role="alert" style="display:none;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <span>Low confidence. Please verify the text manually.</span>
+        </div>
+
+        <!-- Results Dashboard -->
+        <section class="results-dashboard" id="results" style="display:none;">
+            <!-- KPI Summary Cards -->
+            <div class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-header">
+                        <span class="kpi-label">Confiança Média</span>
+                        <span class="kpi-icon" id="confIcon">🎯</span>
+                    </div>
+                    <div class="kpi-value" id="kpiConfidence">0%</div>
+                    <div class="kpi-sub" id="kpiConfidenceSub">Nível de certeza da extração</div>
                 </div>
-                <br>
-                <div class="info-panel">
-                    <h2>Informações Extraídas</h2>
-                    <div id="contentArea"></div>
-                    <div id="pagesArea"></div>
-                    <div id="linesArea"></div>
-                    <div id="wordsArea"></div>
+                
+                <div class="kpi-card">
+                    <div class="kpi-header">
+                        <span class="kpi-label">Palavras Identificadas</span>
+                        <span class="kpi-icon">📝</span>
+                    </div>
+                    <div class="kpi-value" id="kpiWords">0</div>
+                    <div class="kpi-sub" id="kpiChars">0 caracteres totais</div>
+                </div>
+                
+                <div class="kpi-card">
+                    <div class="kpi-header">
+                        <span class="kpi-label">Linhas Detectadas</span>
+                        <span class="kpi-icon">📑</span>
+                    </div>
+                    <div class="kpi-value" id="kpiLines">0</div>
+                    <div class="kpi-sub">Segmentação de parágrafos</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-header">
+                        <span class="kpi-label">Dimensões da Imagem</span>
+                        <span class="kpi-icon">📐</span>
+                    </div>
+                    <div class="kpi-value" id="kpiDimensions">0 × 0</div>
+                    <div class="kpi-sub">Resolução em pixels (1 página)</div>
+                </div>
+            </div>
+
+            <!-- Dashboard Navigation Tabs -->
+            <div class="tabs-nav">
+                <button class="tab-btn active" data-tab="tab-analytics">📊 Gráficos de Análise</button>
+                <button class="tab-btn" data-tab="tab-visual">🖼️ Inspeção Visual</button>
+                <button class="tab-btn" data-tab="tab-text">📄 Texto Extraído</button>
+                <button class="tab-btn" data-tab="tab-lines">🔍 Linhas e Caixas</button>
+                <button class="tab-btn" data-tab="tab-raw">📦 JSON Estruturado</button>
+            </div>
+
+            <!-- Tab 1: Charts & Analytics -->
+            <div class="tab-content active" id="tab-analytics">
+                <div class="charts-grid">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Distribuição de Confiança</h3>
+                            <span class="badge badge-info">Qualidade OCR</span>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="confidenceChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Densidade por Linha de Texto</h3>
+                            <span class="badge badge-info">Contagem de Palavras</span>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="linesChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: Visual Document Inspector with Bounding Boxes -->
+            <div class="tab-content" id="tab-visual">
+                <div class="visual-inspector-card">
+                    <div class="inspector-controls">
+                        <span>Passe o mouse sobre os retângulos para inspecionar os elementos detectados.</span>
+                        <label class="toggle-wrap">
+                            <input type="checkbox" id="toggleBoxes" checked>
+                            <span>Exibir caixas delimitadoras</span>
+                        </label>
+                    </div>
+                    <div class="visual-container" id="visualContainer">
+                        <img id="resultImage" src="" alt="Imagem analisada">
+                        <svg id="boundingBoxOverlay" class="box-overlay"></svg>
+                    </div>
+                    <div id="hoverTooltip" class="box-tooltip" style="display:none;"></div>
+                </div>
+            </div>
+
+            <!-- Tab 3: Extracted Text -->
+            <div class="tab-content" id="tab-text">
+                <div class="text-card">
+                    <div class="text-card-header">
+                        <h3>Conteúdo Textual Completo</h3>
+                        <div class="text-actions">
+                            <button type="button" class="btn btn-secondary btn-sm" id="copyTextBtn">Copiar Texto</button>
+                            <button type="button" class="btn btn-outline btn-sm" id="downloadTextBtn">Baixar .TXT</button>
+                        </div>
+                    </div>
+                    <pre class="extracted-text-box" id="contentArea"></pre>
+                </div>
+            </div>
+
+            <!-- Tab 4: Lines & Coordinates -->
+            <div class="tab-content" id="tab-lines">
+                <div class="breakdown-card">
+                    <div class="breakdown-header">
+                        <h3>Detalhamento por Linha e Coordenadas</h3>
+                        <span class="badge badge-secondary" id="linesCountBadge">0 linhas</span>
+                    </div>
+                    <div class="lines-list" id="linesArea"></div>
+                </div>
+            </div>
+
+            <!-- Tab 5: Raw JSON -->
+            <div class="tab-content" id="tab-raw">
+                <div class="json-card">
+                    <div class="json-card-header">
+                        <h3>Payload JSON da Resposta</h3>
+                        <button type="button" class="btn btn-secondary btn-sm" id="copyJsonBtn">Copiar JSON</button>
+                    </div>
+                    <pre class="json-box"><code id="rawJsonCode"></code></pre>
                 </div>
             </div>
         </section>
     </main>
-    
+
+    <footer class="app-footer">
+        <p>OCR Document Intelligence &bull; Desenvolvido com Flask &bull; Zero Cloud Lock-in</p>
+    </footer>
+
     <script src="/static/js/script.js"></script>
 </body>
 </html>
