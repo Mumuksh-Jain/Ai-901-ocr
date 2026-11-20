@@ -1,4 +1,6 @@
 // OCR Document Intelligence — Interactive Analytics & React Flow Live Simulation
+// Safe, defensive, zero-crash architecture
+
 let currentData = null;
 let confidenceChartInstance = null;
 let linesChartInstance = null;
@@ -10,42 +12,17 @@ let rfSetNodesGlobal = null;
 let rfSetEdgesGlobal = null;
 let isRfMounted = false;
 
+// Safe element getter
+function el(id) {
+    return document.getElementById(id);
+}
+
 // Escaping for XSS prevention
 function escapeHtml(value) {
     return String(value ?? '').replace(/[&<>"']/g, char => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     }[char]));
 }
-
-// Elements
-const dropZone = document.getElementById('dropZone');
-const imageInput = document.getElementById('imageInput');
-const selectFileBtn = document.getElementById('selectFileBtn');
-const loadSampleBtn = document.getElementById('loadSampleBtn');
-const fileDetails = document.getElementById('fileDetails');
-const fileName = document.getElementById('fileName');
-const clearFileBtn = document.getElementById('clearFileBtn');
-const preview = document.getElementById('preview');
-const analyzeBtn = document.getElementById('analyzeBtn');
-const uploadForm = document.getElementById('uploadForm');
-const errorBanner = document.getElementById('error');
-const confidenceWarning = document.getElementById('confidenceWarning');
-const resultsSection = document.getElementById('results');
-const simulationTheater = document.getElementById('simulationTheater');
-const simTimer = document.getElementById('simTimer');
-const skipSimBtn = document.getElementById('skipSimBtn');
-const replaySimBtn = document.getElementById('replaySimBtn');
-const scannerDocImage = document.getElementById('scannerDocImage');
-const detectedBoxesLayer = document.getElementById('detectedBoxesLayer');
-const telemetryConsole = document.getElementById('telemetryConsole');
-const hudState = document.getElementById('hudState');
-const tabButtons = document.querySelectorAll('.tab-btn');
-const tabContents = document.querySelectorAll('.tab-content');
-const toggleBoxes = document.getElementById('toggleBoxes');
-const boundingBoxOverlay = document.getElementById('boundingBoxOverlay');
-const resultImage = document.getElementById('resultImage');
-const hoverTooltip = document.getElementById('hoverTooltip');
-const rfContainer = document.getElementById('reactflow-mount');
 
 /* ==========================================================================
    PIPELINE NODES DATA SPECIFICATION
@@ -94,9 +71,12 @@ const pipelineNodesData = [
 ];
 
 /* ==========================================================================
-   DYNAMIC REACT FLOW LOADER (No static top-level imports)
+   DYNAMIC REACT FLOW LOADER
    ========================================================================== */
 async function loadReactFlow() {
+    const rfContainer = el('reactflow-mount');
+    if (!rfContainer) return;
+
     try {
         const [reactMod, reactDomMod, rfMod] = await Promise.all([
             import('https://esm.sh/react@18.2.0'),
@@ -176,29 +156,22 @@ async function loadReactFlow() {
             );
         }
 
-        if (rfContainer) {
-            rfContainer.innerHTML = '';
-            const root = ReactDOM.createRoot(rfContainer);
-            root.render(React.createElement(ReactFlowApp));
-        }
+        rfContainer.innerHTML = '';
+        const root = ReactDOM.createRoot(rfContainer);
+        root.render(React.createElement(ReactFlowApp));
     } catch (err) {
-        console.warn('React Flow CDN load notice, running native pipeline renderer:', err);
+        console.warn('React Flow fallback active:', err);
         renderNativePipeline();
     }
 }
 
 // Native Canvas/HTML fallback if CDN has delay
 function renderNativePipeline() {
+    const rfContainer = el('reactflow-mount');
     if (!rfContainer || isRfMounted) return;
     rfContainer.innerHTML = `
         <div style="position:relative; width:100%; height:100%; background:#090e1a; overflow:hidden;">
             <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
-                <defs>
-                    <linearGradient id="edgeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                        <stop offset="0%" stop-color="#3b82f6"/>
-                        <stop offset="100%" stop-color="#10b981"/>
-                    </linearGradient>
-                </defs>
                 <path id="nedge-1" d="M 180 80 L 220 80" stroke="#334155" stroke-width="2" stroke-dasharray="5 5"/>
                 <path id="nedge-2" d="M 380 80 L 420 80" stroke="#334155" stroke-width="2" stroke-dasharray="5 5"/>
                 <path id="nedge-3" d="M 500 130 L 500 200" stroke="#334155" stroke-width="2" stroke-dasharray="5 5"/>
@@ -213,13 +186,6 @@ function renderNativePipeline() {
             `).join('')}
         </div>
     `;
-}
-
-// Initialise React Flow gracefully
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', loadReactFlow);
-} else {
-    loadReactFlow();
 }
 
 // Update nodes and edges during simulation
@@ -256,16 +222,16 @@ function updatePipelineNodeState(activeNodeId, completedNodeIds = []) {
 
     // 2. Synchronize Native DOM elements if active
     pipelineNodesData.forEach(n => {
-        const el = document.getElementById(`native-${n.id}`);
-        const st = document.getElementById(`native-status-${n.id}`);
-        if (!el || !st) return;
-        el.classList.remove('active', 'completed');
+        const item = el(`native-${n.id}`);
+        const st = el(`native-status-${n.id}`);
+        if (!item || !st) return;
+        item.classList.remove('active', 'completed');
         if (n.id === activeNodeId) {
-            el.classList.add('active');
+            item.classList.add('active');
             st.textContent = '⚡ Processando...';
             st.style.color = '#60a5fa';
         } else if (completedNodeIds.includes(n.id)) {
-            el.classList.add('completed');
+            item.classList.add('completed');
             st.textContent = '✅ Concluído';
             st.style.color = '#34d399';
         } else {
@@ -283,22 +249,26 @@ function resetPipelineNodes() {
    SIMULATION CONTROLLER (OPTICAL SCANNER + LOGS)
    ========================================================================== */
 function logTelemetry(text, type = 'info') {
+    const consoleEl = el('telemetryConsole');
+    if (!consoleEl) return;
     const elapsed = ((performance.now() - simStartTime) / 1000).toFixed(2);
     const line = document.createElement('div');
     line.className = `t-line log-${type}`;
     line.textContent = `> [00:${elapsed.padStart(5, '0')}] ${text}`;
-    telemetryConsole.appendChild(line);
-    telemetryConsole.scrollTop = telemetryConsole.scrollHeight;
+    consoleEl.appendChild(line);
+    consoleEl.scrollTop = consoleEl.scrollHeight;
 }
 
 function startTimer() {
     simStartTime = performance.now();
     clearInterval(simTimerInterval);
     simTimerInterval = setInterval(() => {
+        const timerEl = el('simTimer');
+        if (!timerEl) return;
         const elapsed = (performance.now() - simStartTime) / 1000;
         const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
         const secs = (elapsed % 60).toFixed(2).padStart(5, '0');
-        simTimer.textContent = `${mins}:${secs}`;
+        timerEl.textContent = `${mins}:${secs}`;
     }, 50);
 }
 
@@ -307,6 +277,8 @@ function stopTimer() {
 }
 
 function flashDetectedBox(topPct, leftPct, widthPct, heightPct, textTag) {
+    const layer = el('detectedBoxesLayer');
+    if (!layer) return;
     const box = document.createElement('div');
     box.className = 'hud-box-tag';
     box.style.top = `${topPct}%`;
@@ -314,40 +286,46 @@ function flashDetectedBox(topPct, leftPct, widthPct, heightPct, textTag) {
     box.style.width = `${widthPct}%`;
     box.style.height = `${heightPct}%`;
     box.innerHTML = `<span>${escapeHtml(textTag)}</span>`;
-    detectedBoxesLayer.appendChild(box);
+    layer.appendChild(box);
 }
 
 async function runLiveSimulation(data, onFinished) {
-    simulationTheater.style.display = 'block';
-    simulationTheater.scrollIntoView({ behavior: 'smooth' });
-    resultsSection.style.display = 'none';
+    const theater = el('simulationTheater');
+    if (theater) {
+        theater.style.display = 'block';
+        theater.scrollIntoView({ behavior: 'smooth' });
+    }
+    const results = el('results');
+    if (results) results.style.display = 'none';
 
-    // Reset components
     resetPipelineNodes();
-    telemetryConsole.innerHTML = '';
-    detectedBoxesLayer.innerHTML = '';
-    hudState.textContent = 'INICIANDO VARREDURA...';
+    const consoleEl = el('telemetryConsole');
+    if (consoleEl) consoleEl.innerHTML = '';
+    const layer = el('detectedBoxesLayer');
+    if (layer) layer.innerHTML = '';
+    const hud = el('hudState');
+    if (hud) hud.textContent = 'INICIANDO VARREDURA...';
     startTimer();
 
     logTelemetry('PIPELINE NEURAL: Inicializando alocadores em memória...', 'info');
 
     // Step 1: Buffer Ingest
     updatePipelineNodeState('node-stream', []);
-    hudState.textContent = 'INGESTÃO DE BUFFER (MIME CHECK)';
+    if (hud) hud.textContent = 'INGESTÃO DE BUFFER (MIME CHECK)';
     logTelemetry('STREAM: Imagem carregada no buffer BytesIO (0 persistência em disco).', 'info');
 
     await new Promise(r => setTimeout(r, 650));
 
     // Step 2: Pillow Sanitization
     updatePipelineNodeState('node-pillow', ['node-stream']);
-    hudState.textContent = 'VALIDADOR PILLOW: CHECAGEM DE ASSINATURA';
+    if (hud) hud.textContent = 'VALIDADOR PILLOW: CHECAGEM DE ASSINATURA';
     logTelemetry('PILLOW: Verificação de cabeçalho e assinatura gráfica válida.', 'info');
 
     await new Promise(r => setTimeout(r, 700));
 
     // Step 3: OCR Neural Dispatch & Optical Laser Pass
     updatePipelineNodeState('node-ocr', ['node-stream', 'node-pillow']);
-    hudState.textContent = 'VARREDURA ÓPTICA: OCR NEURAL CORE';
+    if (hud) hud.textContent = 'VARREDURA ÓPTICA: OCR NEURAL CORE';
     logTelemetry('OCR CORE: Disparando extração vetorial com OCR.space Engine 2.0...', 'info');
 
     // Laser reveals Line 1
@@ -372,21 +350,21 @@ async function runLiveSimulation(data, onFinished) {
 
     // Step 4: Spatial Mapping
     updatePipelineNodeState('node-spatial', ['node-stream', 'node-pillow', 'node-ocr']);
-    hudState.textContent = 'PROJEÇÃO DE COORDENADAS ESPACIAIS';
+    if (hud) hud.textContent = 'PROJEÇÃO DE COORDENADAS ESPACIAIS';
     logTelemetry('SPATIAL: Projeção de caixas delimitadoras e polígonos concluída.', 'info');
 
     await new Promise(r => setTimeout(r, 700));
 
     // Step 5: Analytical Synthesis
     updatePipelineNodeState('node-analytics', ['node-stream', 'node-pillow', 'node-ocr', 'node-spatial']);
-    hudState.textContent = 'SÍNTESE ANALÍTICA & GRÁFICOS';
+    if (hud) hud.textContent = 'SÍNTESE ANALÍTICA & GRÁFICOS';
     logTelemetry(`ANALYTICS: Confiança média consolidada em ${Math.round((data.confidence || 0.95) * 100)}%.`, 'success');
 
     await new Promise(r => setTimeout(r, 650));
 
     // All Completed
     updatePipelineNodeState(null, ['node-stream', 'node-pillow', 'node-ocr', 'node-spatial', 'node-analytics']);
-    hudState.textContent = 'PIPELINE CONCLUÍDO COM SUCESSO';
+    if (hud) hud.textContent = 'PIPELINE CONCLUÍDO COM SUCESSO';
     logTelemetry('SUCESSO: Todos os nós completados. Redirecionando para resultados...', 'success');
     stopTimer();
 
@@ -396,195 +374,340 @@ async function runLiveSimulation(data, onFinished) {
 }
 
 /* ==========================================================================
-   DRAG & DROP, UPLOAD & FORM EVENTS
+   APP INITIALIZATION & EVENT REGISTRATION
    ========================================================================== */
-dropZone.addEventListener('click', (e) => {
-    if (e.target.closest('button')) return;
-    imageInput.click();
-});
-selectFileBtn.addEventListener('click', () => imageInput.click());
-
-['dragenter', 'dragover'].forEach(name => {
-    dropZone.addEventListener(name, (e) => {
-        e.preventDefault();
-        dropZone.classList.add('dragover');
-    });
-});
-
-['dragleave', 'drop'].forEach(name => {
-    dropZone.addEventListener(name, (e) => {
-        e.preventDefault();
-        dropZone.classList.remove('dragover');
-    });
-});
-
-dropZone.addEventListener('drop', (e) => {
-    const file = e.dataTransfer.files[0];
-    if (file) handleFile(file);
-});
-
-imageInput.addEventListener('change', (e) => {
-    if (e.target.files[0]) handleFile(e.target.files[0]);
-});
-
-clearFileBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    resetUpload();
-});
-
-// Load Demo Sample Image
-loadSampleBtn.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    try {
-        const res = await fetch('/exemplos/documento_demo.png');
-        if (!res.ok) throw new Error('Não foi possível carregar a imagem de exemplo.');
-        const blob = await res.blob();
-        const file = new File([blob], 'documento_demo.png', { type: 'image/png' });
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        imageInput.files = dt.files;
-        handleFile(file);
-    } catch (err) {
-        showError('Erro ao carregar documento de demonstração: ' + err.message);
-    }
-});
-
 function handleFile(file) {
     if (!file.type.match(/image\/(png|jpeg|jpg|bmp|tiff)/i)) {
         showError('Formato inválido. Por favor, envie uma imagem PNG, JPG, BMP ou TIFF.');
         return;
     }
     hideError();
-    fileName.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
-    fileDetails.style.display = 'inline-flex';
-    analyzeBtn.disabled = false;
+
+    const fileNameEl = el('fileName');
+    if (fileNameEl) fileNameEl.textContent = `${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+    
+    const fileDetailsEl = el('fileDetails');
+    if (fileDetailsEl) fileDetailsEl.style.display = 'inline-flex';
+
+    const analyzeBtnEl = el('analyzeBtn');
+    if (analyzeBtnEl) analyzeBtnEl.disabled = false;
 
     const reader = new FileReader();
     reader.onload = (e) => {
-        preview.src = e.target.result;
-        preview.style.display = 'block';
-        scannerDocImage.src = e.target.result;
+        const previewEl = el('preview');
+        if (previewEl) {
+            previewEl.src = e.target.result;
+            previewEl.style.display = 'block';
+        }
+        const scannerDocEl = el('scannerDocImage');
+        if (scannerDocEl) {
+            scannerDocEl.src = e.target.result;
+        }
     };
     reader.readAsDataURL(file);
 }
 
 function resetUpload() {
-    imageInput.value = '';
-    preview.src = '';
-    preview.style.display = 'none';
-    scannerDocImage.src = '';
-    fileDetails.style.display = 'none';
-    analyzeBtn.disabled = true;
+    const input = el('imageInput');
+    if (input) input.value = '';
+    const previewEl = el('preview');
+    if (previewEl) {
+        previewEl.src = '';
+        previewEl.style.display = 'none';
+    }
+    const scannerDocEl = el('scannerDocImage');
+    if (scannerDocEl) scannerDocEl.src = '';
+    const details = el('fileDetails');
+    if (details) details.style.display = 'none';
+    const btn = el('analyzeBtn');
+    if (btn) btn.disabled = true;
     hideError();
 }
 
 function showError(msg) {
-    errorBanner.textContent = msg;
-    errorBanner.style.display = 'block';
+    const banner = el('error');
+    if (banner) {
+        banner.textContent = msg;
+        banner.style.display = 'block';
+    }
 }
 
 function hideError() {
-    errorBanner.textContent = '';
-    errorBanner.style.display = 'none';
+    const banner = el('error');
+    if (banner) {
+        banner.textContent = '';
+        banner.style.display = 'none';
+    }
 }
-
-// Form Submission & Flow Orchestration
-uploadForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const file = imageInput.files[0];
-    if (!file) {
-        showError('Selecione uma imagem para análise.');
-        return;
-    }
-
-    hideError();
-    confidenceWarning.style.display = 'none';
-    analyzeBtn.disabled = true;
-
-    const formData = new FormData();
-    formData.append('image', file);
-
-    try {
-        const apiPromise = fetch('/api/analyze', { method: 'POST', body: formData })
-            .then(res => res.json());
-
-        const [apiResult] = await Promise.all([
-            apiPromise,
-            new Promise((resolve) => {
-                runLiveSimulation({ confidence: 0.95 }, resolve);
-            })
-        ]);
-
-        if (!apiResult.success) {
-            simulationTheater.style.display = 'none';
-            showError(apiResult.error || 'Falha ao processar a imagem.');
-        } else {
-            currentData = apiResult;
-            finishSimulationAndShowResults(apiResult);
-        }
-    } catch (err) {
-        simulationTheater.style.display = 'none';
-        showError('Erro de conexão com o servidor. Verifique se o backend está em execução.');
-    } finally {
-        analyzeBtn.disabled = false;
-    }
-});
 
 function finishSimulationAndShowResults(data) {
     renderResults(data);
-    resultsSection.style.display = 'block';
-    resultsSection.scrollIntoView({ behavior: 'smooth' });
+    const results = el('results');
+    if (results) {
+        results.style.display = 'block';
+        results.scrollIntoView({ behavior: 'smooth' });
+    }
 }
 
-// Skip & Replay Buttons
-skipSimBtn.addEventListener('click', () => {
-    stopTimer();
-    updatePipelineNodeState(null, ['node-stream', 'node-pillow', 'node-ocr', 'node-spatial', 'node-analytics']);
-    if (currentData) finishSimulationAndShowResults(currentData);
-});
+function initEvents() {
+    const dropZoneEl = el('dropZone');
+    const imageInputEl = el('imageInput');
+    const selectFileBtnEl = el('selectFileBtn');
+    const loadSampleBtnEl = el('loadSampleBtn');
+    const clearFileBtnEl = el('clearFileBtn');
+    const uploadFormEl = el('uploadForm');
+    const skipSimBtnEl = el('skipSimBtn');
+    const replaySimBtnEl = el('replaySimBtn');
+    const toggleBoxesEl = el('toggleBoxes');
 
-replaySimBtn.addEventListener('click', () => {
-    if (currentData) {
-        runLiveSimulation(currentData, () => {
-            finishSimulationAndShowResults(currentData);
+    if (dropZoneEl && imageInputEl) {
+        dropZoneEl.addEventListener('click', (e) => {
+            if (e.target.closest('button')) return;
+            imageInputEl.click();
+        });
+
+        ['dragenter', 'dragover'].forEach(name => {
+            dropZoneEl.addEventListener(name, (e) => {
+                e.preventDefault();
+                dropZoneEl.classList.add('dragover');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(name => {
+            dropZoneEl.addEventListener(name, (e) => {
+                e.preventDefault();
+                dropZoneEl.classList.remove('dragover');
+            });
+        });
+
+        dropZoneEl.addEventListener('drop', (e) => {
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
         });
     }
-});
+
+    if (selectFileBtnEl && imageInputEl) {
+        selectFileBtnEl.addEventListener('click', () => imageInputEl.click());
+    }
+
+    if (imageInputEl) {
+        imageInputEl.addEventListener('change', (e) => {
+            if (e.target.files[0]) handleFile(e.target.files[0]);
+        });
+    }
+
+    if (clearFileBtnEl) {
+        clearFileBtnEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            resetUpload();
+        });
+    }
+
+    if (loadSampleBtnEl && imageInputEl) {
+        loadSampleBtnEl.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            try {
+                const res = await fetch('/exemplos/documento_demo.png');
+                if (!res.ok) throw new Error('Não foi possível carregar a imagem de exemplo.');
+                const blob = await res.blob();
+                const file = new File([blob], 'documento_demo.png', { type: 'image/png' });
+                const dt = new DataTransfer();
+                dt.items.add(file);
+                imageInputEl.files = dt.files;
+                handleFile(file);
+            } catch (err) {
+                showError('Erro ao carregar documento de demonstração: ' + err.message);
+            }
+        });
+    }
+
+    if (uploadFormEl && imageInputEl) {
+        uploadFormEl.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const file = imageInputEl.files[0];
+            if (!file) {
+                showError('Selecione uma imagem para análise.');
+                return;
+            }
+
+            hideError();
+            const warningEl = el('confidenceWarning');
+            if (warningEl) warningEl.style.display = 'none';
+
+            const analyzeBtnEl = el('analyzeBtn');
+            if (analyzeBtnEl) analyzeBtnEl.disabled = true;
+
+            const formData = new FormData();
+            formData.append('image', file);
+
+            try {
+                const apiPromise = fetch('/api/analyze', { method: 'POST', body: formData })
+                    .then(res => res.json());
+
+                const [apiResult] = await Promise.all([
+                    apiPromise,
+                    new Promise((resolve) => {
+                        runLiveSimulation({ confidence: 0.95 }, resolve);
+                    })
+                ]);
+
+                if (!apiResult.success) {
+                    const theater = el('simulationTheater');
+                    if (theater) theater.style.display = 'none';
+                    showError(apiResult.error || 'Falha ao processar a imagem.');
+                } else {
+                    currentData = apiResult;
+                    finishSimulationAndShowResults(apiResult);
+                }
+            } catch (err) {
+                const theater = el('simulationTheater');
+                if (theater) theater.style.display = 'none';
+                showError('Erro de conexão com o servidor. Verifique se o backend está em execução.');
+            } finally {
+                if (analyzeBtnEl) analyzeBtnEl.disabled = false;
+            }
+        });
+    }
+
+    if (skipSimBtnEl) {
+        skipSimBtnEl.addEventListener('click', () => {
+            stopTimer();
+            updatePipelineNodeState(null, ['node-stream', 'node-pillow', 'node-ocr', 'node-spatial', 'node-analytics']);
+            if (currentData) finishSimulationAndShowResults(currentData);
+        });
+    }
+
+    if (replaySimBtnEl) {
+        replaySimBtnEl.addEventListener('click', () => {
+            if (currentData) {
+                runLiveSimulation(currentData, () => {
+                    finishSimulationAndShowResults(currentData);
+                });
+            }
+        });
+    }
+
+    if (toggleBoxesEl) {
+        toggleBoxesEl.addEventListener('change', (e) => {
+            const overlay = el('boundingBoxOverlay');
+            if (overlay) overlay.style.display = e.target.checked ? 'block' : 'none';
+        });
+    }
+
+    // Tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            btn.classList.add('active');
+            const targetId = btn.getAttribute('data-tab');
+            const targetContent = el(targetId);
+            if (targetContent) targetContent.classList.add('active');
+
+            if (targetId === 'tab-analytics') {
+                if (confidenceChartInstance) confidenceChartInstance.resize();
+                if (linesChartInstance) linesChartInstance.resize();
+            }
+        });
+    });
+
+    // Copy / Download Action Buttons
+    const copyTextBtn = el('copyTextBtn');
+    if (copyTextBtn) {
+        copyTextBtn.addEventListener('click', () => {
+            if (!currentData || !currentData.content) return;
+            navigator.clipboard.writeText(currentData.content);
+            alert('Texto copiado com sucesso!');
+        });
+    }
+
+    const downloadTextBtn = el('downloadTextBtn');
+    if (downloadTextBtn) {
+        downloadTextBtn.addEventListener('click', () => {
+            if (!currentData || !currentData.content) return;
+            const blob = new Blob([currentData.content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'texto_extraido_ocr.txt';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    }
+
+    const copyJsonBtn = el('copyJsonBtn');
+    if (copyJsonBtn) {
+        copyJsonBtn.addEventListener('click', () => {
+            if (!currentData) return;
+            navigator.clipboard.writeText(JSON.stringify(currentData, null, 2));
+            alert('JSON copiado com sucesso!');
+        });
+    }
+
+    // Auto-run for demonstrations
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('autoload') === 'true' && imageInputEl && uploadFormEl) {
+        setTimeout(async () => {
+            try {
+                const res = await fetch('/exemplos/documento_demo.png');
+                if (res.ok) {
+                    const blob = await res.blob();
+                    const file = new File([blob], 'documento_demo.png', { type: 'image/png' });
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    imageInputEl.files = dt.files;
+                    handleFile(file);
+                    uploadFormEl.dispatchEvent(new Event('submit'));
+                }
+            } catch(e) { console.error(e); }
+        }, 500);
+    }
+}
 
 /* ==========================================================================
    RESULTS DASHBOARD & CHARTS
    ========================================================================== */
 function renderResults(data) {
-    // 1. KPI Cards
     const avgConf = typeof data.confidence === 'number' ? data.confidence : 0;
     const pctConf = Math.round(avgConf * 100);
-    const kpiConfElem = document.getElementById('kpiConfidence');
-    kpiConfElem.textContent = `${pctConf}%`;
-    kpiConfElem.style.color = avgConf >= 0.8 ? '#10b981' : (avgConf >= 0.6 ? '#f59e0b' : '#ef4444');
+
+    const kpiConfElem = el('kpiConfidence');
+    if (kpiConfElem) {
+        kpiConfElem.textContent = `${pctConf}%`;
+        kpiConfElem.style.color = avgConf >= 0.8 ? '#10b981' : (avgConf >= 0.6 ? '#f59e0b' : '#ef4444');
+    }
 
     const totalWords = data.words ? data.words.length : (data.content ? data.content.split(/\s+/).filter(Boolean).length : 0);
     const totalLines = data.lines ? data.lines.length : 0;
     const totalChars = data.content ? data.content.length : 0;
 
-    document.getElementById('kpiWords').textContent = totalWords.toLocaleString();
-    document.getElementById('kpiChars').textContent = `${totalChars.toLocaleString()} caracteres totais`;
-    document.getElementById('kpiLines').textContent = totalLines.toLocaleString();
+    const kpiWordsEl = el('kpiWords');
+    if (kpiWordsEl) kpiWordsEl.textContent = totalWords.toLocaleString();
+
+    const kpiCharsEl = el('kpiChars');
+    if (kpiCharsEl) kpiCharsEl.textContent = `${totalChars.toLocaleString()} caracteres totais`;
+
+    const kpiLinesEl = el('kpiLines');
+    if (kpiLinesEl) kpiLinesEl.textContent = totalLines.toLocaleString();
 
     const page = data.pages && data.pages[0] ? data.pages[0] : { width: 'N/A', height: 'N/A' };
-    document.getElementById('kpiDimensions').textContent = `${page.width} × ${page.height}`;
+    const kpiDimEl = el('kpiDimensions');
+    if (kpiDimEl) kpiDimEl.textContent = `${page.width} × ${page.height}`;
 
-    // 2. Low Confidence Warning
-    if (avgConf < 0.6) {
-        confidenceWarning.style.display = 'flex';
-    } else {
-        confidenceWarning.style.display = 'none';
+    const warningEl = el('confidenceWarning');
+    if (warningEl) {
+        warningEl.style.display = avgConf < 0.6 ? 'flex' : 'none';
     }
 
-    // 3. Extracted Text Tab
-    document.getElementById('contentArea').textContent = data.content || '(Nenhum texto detectado)';
+    const contentAreaEl = el('contentArea');
+    if (contentAreaEl) {
+        contentAreaEl.textContent = data.content || '(Nenhum texto detectado)';
+    }
 
-    // 4. Lines Breakdown Tab
-    document.getElementById('linesCountBadge').textContent = `${totalLines} linhas`;
+    const badgeEl = el('linesCountBadge');
+    if (badgeEl) badgeEl.textContent = `${totalLines} linhas`;
+
     let linesHtml = '';
     if (data.lines && data.lines.length) {
         data.lines.forEach((line, idx) => {
@@ -604,36 +727,34 @@ function renderResults(data) {
     } else {
         linesHtml = '<p style="color:var(--text-muted);">Nenhuma linha identificada.</p>';
     }
-    document.getElementById('linesArea').innerHTML = linesHtml;
+    const linesAreaEl = el('linesArea');
+    if (linesAreaEl) linesAreaEl.innerHTML = linesHtml;
 
-    // 5. Raw JSON Tab
-    document.getElementById('rawJsonCode').textContent = JSON.stringify(data, null, 2);
+    const rawJsonEl = el('rawJsonCode');
+    if (rawJsonEl) rawJsonEl.textContent = JSON.stringify(data, null, 2);
 
-    // 6. Setup Visual Inspector & Bounding Boxes
-    const input = document.getElementById('imageInput');
-    if (input.files[0]) {
+    const input = el('imageInput');
+    const resultImg = el('resultImage');
+    if (input && input.files[0] && resultImg) {
         const reader = new FileReader();
         reader.onload = (e) => {
-            resultImage.src = e.target.result;
-            resultImage.onload = () => {
+            resultImg.src = e.target.result;
+            resultImg.onload = () => {
                 drawBoundingBoxes(data);
             };
         };
         reader.readAsDataURL(input.files[0]);
     }
 
-    // 7. Render Charts
     renderAnalyticsCharts(data);
 }
 
-// Analytics Charts (Chart.js)
 function renderAnalyticsCharts(data) {
     if (typeof Chart === 'undefined') return;
 
     if (confidenceChartInstance) confidenceChartInstance.destroy();
     if (linesChartInstance) linesChartInstance.destroy();
 
-    // Chart 1: Quality / Confidence Distribution
     const words = data.words || [];
     let high = 0, med = 0, low = 0;
     if (words.length) {
@@ -647,84 +768,83 @@ function renderAnalyticsCharts(data) {
         high = 1;
     }
 
-    const ctxConf = document.getElementById('confidenceChart').getContext('2d');
-    confidenceChartInstance = new Chart(ctxConf, {
-        type: 'doughnut',
-        data: {
-            labels: ['Alta (≥85%)', 'Média (60-84%)', 'Baixa (<60%)'],
-            datasets: [{
-                data: [high, med, low],
-                backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
-                hoverOffset: 6,
-                borderWidth: 2,
-                borderColor: '#ffffff'
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom', labels: { font: { family: 'Inter', size: 12 } } },
-                tooltip: {
-                    callbacks: {
-                        label: function(item) {
-                            return ` ${item.label}: ${item.raw} palavras`;
-                        }
-                    }
-                }
+    const confCanvas = el('confidenceChart');
+    if (confCanvas) {
+        const ctxConf = confCanvas.getContext('2d');
+        confidenceChartInstance = new Chart(ctxConf, {
+            type: 'doughnut',
+            data: {
+                labels: ['Alta (≥85%)', 'Média (60-84%)', 'Baixa (<60%)'],
+                datasets: [{
+                    data: [high, med, low],
+                    backgroundColor: ['#10b981', '#f59e0b', '#ef4444'],
+                    hoverOffset: 6,
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
             },
-            cutout: '68%'
-        }
-    });
-
-    // Chart 2: Words per Line Breakdown
-    const lines = data.lines || [];
-    const lineLabels = lines.map((_, i) => `L${i + 1}`);
-    const lineWordCounts = lines.map(l => (l.content || '').split(/\s+/).filter(Boolean).length);
-
-    const ctxLines = document.getElementById('linesChart').getContext('2d');
-    linesChartInstance = new Chart(ctxLines, {
-        type: 'bar',
-        data: {
-            labels: lineLabels.length ? lineLabels : ['Linha 1'],
-            datasets: [{
-                label: 'Palavras por Linha',
-                data: lineWordCounts.length ? lineWordCounts : [0],
-                backgroundColor: '#3b82f6',
-                borderRadius: 4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    ticks: { precision: 0, font: { family: 'Inter' } },
-                    grid: { color: '#f1f5f9' }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'bottom', labels: { font: { family: 'Inter', size: 12 } } }
                 },
-                x: {
-                    grid: { display: false },
-                    ticks: { font: { family: 'Inter' } }
-                }
-            },
-            plugins: {
-                legend: { display: false }
+                cutout: '68%'
             }
-        }
-    });
+        });
+    }
+
+    const linesCanvas = el('linesChart');
+    if (linesCanvas) {
+        const lines = data.lines || [];
+        const lineLabels = lines.map((_, i) => `L${i + 1}`);
+        const lineWordCounts = lines.map(l => (l.content || '').split(/\s+/).filter(Boolean).length);
+
+        const ctxLines = linesCanvas.getContext('2d');
+        linesChartInstance = new Chart(ctxLines, {
+            type: 'bar',
+            data: {
+                labels: lineLabels.length ? lineLabels : ['Linha 1'],
+                datasets: [{
+                    label: 'Palavras por Linha',
+                    data: lineWordCounts.length ? lineWordCounts : [0],
+                    backgroundColor: '#3b82f6',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0, font: { family: 'Inter' } },
+                        grid: { color: '#f1f5f9' }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { font: { family: 'Inter' } }
+                    }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
+    }
 }
 
-// Visual Inspector: Draw SVG Bounding Boxes
 function drawBoundingBoxes(data) {
-    boundingBoxOverlay.innerHTML = '';
+    const overlay = el('boundingBoxOverlay');
+    if (!overlay) return;
+    overlay.innerHTML = '';
     const page = data.pages && data.pages[0];
     if (!page || !page.width || !page.height) return;
 
     const origW = page.width;
     const origH = page.height;
 
-    boundingBoxOverlay.setAttribute('viewBox', `0 0 ${origW} ${origH}`);
+    overlay.setAttribute('viewBox', `0 0 ${origW} ${origH}`);
 
     const lines = data.lines || [];
     lines.forEach((line, idx) => {
@@ -757,70 +877,42 @@ function drawBoundingBoxes(data) {
             hideTooltip();
         });
 
-        boundingBoxOverlay.appendChild(rect);
+        overlay.appendChild(rect);
     });
 }
 
-toggleBoxes.addEventListener('change', (e) => {
-    boundingBoxOverlay.style.display = e.target.checked ? 'block' : 'none';
-});
-
 function showTooltip(e, content, confidence) {
+    const tooltip = el('hoverTooltip');
+    if (!tooltip) return;
     const confPct = Math.round((confidence || 0) * 100);
-    hoverTooltip.innerHTML = `<strong>${escapeHtml(content)}</strong><br><span style="opacity:0.8;">Confiança: ${confPct}%</span>`;
-    hoverTooltip.style.display = 'block';
+    tooltip.innerHTML = `<strong>${escapeHtml(content)}</strong><br><span style="opacity:0.8;">Confiança: ${confPct}%</span>`;
+    tooltip.style.display = 'block';
     positionTooltip(e);
 }
 
 function positionTooltip(e) {
-    const containerRect = document.getElementById('visualContainer').getBoundingClientRect();
+    const tooltip = el('hoverTooltip');
+    const container = el('visualContainer');
+    if (!tooltip || !container) return;
+    const containerRect = container.getBoundingClientRect();
     const x = e.clientX - containerRect.left + 15;
     const y = e.clientY - containerRect.top + 15;
-    hoverTooltip.style.left = `${x}px`;
-    hoverTooltip.style.top = `${y}px`;
+    tooltip.style.left = `${x}px`;
+    tooltip.style.top = `${y}px`;
 }
 
 function hideTooltip() {
-    hoverTooltip.style.display = 'none';
+    const tooltip = el('hoverTooltip');
+    if (tooltip) tooltip.style.display = 'none';
 }
 
-// Tabs
-tabButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-        tabButtons.forEach(b => b.classList.remove('active'));
-        tabContents.forEach(c => c.classList.remove('active'));
-
-        btn.classList.add('active');
-        const targetId = btn.getAttribute('data-tab');
-        document.getElementById(targetId).classList.add('active');
-
-        if (targetId === 'tab-analytics') {
-            if (confidenceChartInstance) confidenceChartInstance.resize();
-            if (linesChartInstance) linesChartInstance.resize();
-        }
+// Kick off initialization
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+        initEvents();
+        loadReactFlow();
     });
-});
-
-// Copy & Download Actions
-document.getElementById('copyTextBtn').addEventListener('click', () => {
-    if (!currentData || !currentData.content) return;
-    navigator.clipboard.writeText(currentData.content);
-    alert('Texto copiado com sucesso!');
-});
-
-document.getElementById('downloadTextBtn').addEventListener('click', () => {
-    if (!currentData || !currentData.content) return;
-    const blob = new Blob([currentData.content], { type: 'text/plain;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'texto_extraido_ocr.txt';
-    a.click();
-    URL.revokeObjectURL(url);
-});
-
-document.getElementById('copyJsonBtn').addEventListener('click', () => {
-    if (!currentData) return;
-    navigator.clipboard.writeText(JSON.stringify(currentData, null, 2));
-    alert('JSON copiado com sucesso!');
-});
+} else {
+    initEvents();
+    loadReactFlow();
+}
