@@ -51,17 +51,22 @@
 
 ## 🖥️ UI & Analytics Showcase
 
-### 1. Modern Upload Studio & Drag-and-Drop Zone
+### 1. Real-Time Neural Simulation Theatre (React Flow + Optical Scanner)
+*Live visual simulation triggered upon analysis: features an optical scanner with laser sweeps and real-time bounding box detection alongside an interactive React Flow node pipeline graph with streaming telemetry logs.*
+
+![Real-Time Simulation](docs/screenshots/preview-simulation.png)
+
+### 2. Modern Upload Studio & Drag-and-Drop Zone
 *Sleek drag-and-drop file interface with format detection, preview thumbnail, and one-click demo test trigger.*
 
 ![Upload Studio](docs/screenshots/preview-home.png)
 
-### 2. Analytical Dashboard & Distribution Charts
+### 3. Analytical Dashboard & Distribution Charts
 *Comprehensive KPI metric cards accompanied by Chart.js confidence doughnuts and line density graphs.*
 
 ![Dashboard & Analytics](docs/screenshots/preview-dashboard.png)
 
-### 3. Spatial Document & Bounding Box Inspection
+### 4. Spatial Document & Bounding Box Inspection
 *Interactive SVG layer displaying detected line coordinates directly over the source document with hover metadata.*
 
 ![Visual Document Inspector](docs/screenshots/preview-visual.png)

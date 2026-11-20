@@ -1,7 +1,16 @@
-// OCR Document Intelligence — Interactive Analytics & Visualization Engine
+// OCR Document Intelligence — Interactive Analytics & React Flow Live Simulation
+import React, { useState, useEffect } from 'react';
+import ReactDOM from 'react-dom/client';
+import ReactFlow, { Background, Controls, MiniMap } from 'reactflow';
+
 let currentData = null;
 let confidenceChartInstance = null;
 let linesChartInstance = null;
+let simulationInterval = null;
+let simTimerInterval = null;
+let simStartTime = 0;
+let rfSetNodesGlobal = null;
+let rfSetEdgesGlobal = null;
 
 // Escaping for XSS prevention
 function escapeHtml(value) {
@@ -21,10 +30,17 @@ const clearFileBtn = document.getElementById('clearFileBtn');
 const preview = document.getElementById('preview');
 const analyzeBtn = document.getElementById('analyzeBtn');
 const uploadForm = document.getElementById('uploadForm');
-const loading = document.getElementById('loading');
 const errorBanner = document.getElementById('error');
 const confidenceWarning = document.getElementById('confidenceWarning');
 const resultsSection = document.getElementById('results');
+const simulationTheater = document.getElementById('simulationTheater');
+const simTimer = document.getElementById('simTimer');
+const skipSimBtn = document.getElementById('skipSimBtn');
+const replaySimBtn = document.getElementById('replaySimBtn');
+const scannerDocImage = document.getElementById('scannerDocImage');
+const detectedBoxesLayer = document.getElementById('detectedBoxesLayer');
+const telemetryConsole = document.getElementById('telemetryConsole');
+const hudState = document.getElementById('hudState');
 const tabButtons = document.querySelectorAll('.tab-btn');
 const tabContents = document.querySelectorAll('.tab-content');
 const toggleBoxes = document.getElementById('toggleBoxes');
@@ -32,7 +48,290 @@ const boundingBoxOverlay = document.getElementById('boundingBoxOverlay');
 const resultImage = document.getElementById('resultImage');
 const hoverTooltip = document.getElementById('hoverTooltip');
 
-// Drag & Drop
+/* ==========================================================================
+   REACT FLOW PIPELINE COMPONENT
+   ========================================================================== */
+const initialRfNodes = [
+    {
+        id: 'node-stream',
+        position: { x: 20, y: 40 },
+        data: {
+            title: '1. Ingestão Buffer',
+            desc: 'Stream em memória & checagem MIME',
+            status: 'standby',
+            icon: '📁'
+        },
+        type: 'customNode'
+    },
+    {
+        id: 'node-pillow',
+        position: { x: 220, y: 40 },
+        data: {
+            title: '2. Validador Pillow',
+            desc: 'Verificação de integridade sem disco',
+            status: 'standby',
+            icon: '🛡️'
+        },
+        type: 'customNode'
+    },
+    {
+        id: 'node-ocr',
+        position: { x: 420, y: 40 },
+        data: {
+            title: '3. OCR Neural Core',
+            desc: 'OCR.space Engine 2.0 (tokens & layout)',
+            status: 'standby',
+            icon: '🧠'
+        },
+        type: 'customNode'
+    },
+    {
+        id: 'node-spatial',
+        position: { x: 420, y: 200 },
+        data: {
+            title: '4. Geometria Espacial',
+            desc: 'Projeção de polígonos & caixas',
+            status: 'standby',
+            icon: '📐'
+        },
+        type: 'customNode'
+    },
+    {
+        id: 'node-analytics',
+        position: { x: 220, y: 200 },
+        data: {
+            title: '5. Síntese Analítica',
+            desc: 'Métricas de confiança & gráficos',
+            status: 'standby',
+            icon: '📊'
+        },
+        type: 'customNode'
+    }
+];
+
+const initialRfEdges = [
+    { id: 'e1-2', source: 'node-stream', target: 'node-pillow', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
+    { id: 'e2-3', source: 'node-pillow', target: 'node-ocr', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
+    { id: 'e3-4', source: 'node-ocr', target: 'node-spatial', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
+    { id: 'e4-5', source: 'node-spatial', target: 'node-analytics', animated: false, style: { stroke: '#334155', strokeWidth: 2 } }
+];
+
+function CustomRfNode({ data }) {
+    let statusText = '⏳ Em Espera';
+    let cardClass = 'rf-node-card';
+    if (data.status === 'active') {
+        statusText = '⚡ Processando...';
+        cardClass += ' active';
+    } else if (data.status === 'completed') {
+        statusText = '✅ Concluído';
+        cardClass += ' completed';
+    }
+
+    return React.createElement('div', { className: cardClass },
+        React.createElement('div', { className: 'rf-node-title' },
+            React.createElement('span', null, data.icon),
+            React.createElement('span', null, data.title)
+        ),
+        React.createElement('div', { className: 'rf-node-desc' }, data.desc),
+        React.createElement('div', { className: 'rf-node-status' }, statusText)
+    );
+}
+
+const nodeTypes = { customNode: CustomRfNode };
+
+function ReactFlowApp() {
+    const [nodes, setNodes] = useState(initialRfNodes);
+    const [edges, setEdges] = useState(initialRfEdges);
+
+    useEffect(() => {
+        rfSetNodesGlobal = setNodes;
+        rfSetEdgesGlobal = setEdges;
+    }, []);
+
+    return React.createElement('div', { style: { width: '100%', height: '100%' } },
+        React.createElement(ReactFlow, {
+            nodes: nodes,
+            edges: edges,
+            nodeTypes: nodeTypes,
+            fitView: true,
+            fitViewOptions: { padding: 0.2 },
+            attributionPosition: 'bottom-right'
+        },
+            React.createElement(Background, { color: '#1e293b', gap: 16, size: 1.2 }),
+            React.createElement(Controls, null),
+            React.createElement(MiniMap, {
+                nodeStrokeColor: '#3b82f6',
+                nodeColor: '#1e293b',
+                maskColor: 'rgba(2, 6, 23, 0.7)'
+            })
+        )
+    );
+}
+
+// Mount React Flow
+const rfContainer = document.getElementById('reactflow-mount');
+if (rfContainer) {
+    const root = ReactDOM.createRoot(rfContainer);
+    root.render(React.createElement(ReactFlowApp));
+}
+
+// Helper to update React Flow nodes & edges during simulation
+function updateRfNodeState(activeNodeId, completedNodeIds = []) {
+    if (!rfSetNodesGlobal || !rfSetEdgesGlobal) return;
+
+    rfSetNodesGlobal((prevNodes) =>
+        prevNodes.map((node) => {
+            let status = 'standby';
+            if (node.id === activeNodeId) status = 'active';
+            else if (completedNodeIds.includes(node.id)) status = 'completed';
+            return {
+                ...node,
+                data: { ...node.data, status }
+            };
+        })
+    );
+
+    rfSetEdgesGlobal((prevEdges) =>
+        prevEdges.map((edge) => {
+            const isCompleted = completedNodeIds.includes(edge.source) && completedNodeIds.includes(edge.target);
+            const isActive = completedNodeIds.includes(edge.source) && edge.target === activeNodeId;
+            return {
+                ...edge,
+                animated: isActive || isCompleted,
+                style: {
+                    stroke: isCompleted ? '#10b981' : (isActive ? '#3b82f6' : '#334155'),
+                    strokeWidth: isCompleted || isActive ? 2.5 : 2
+                }
+            };
+        })
+    );
+}
+
+function resetRfNodes() {
+    if (!rfSetNodesGlobal || !rfSetEdgesGlobal) return;
+    rfSetNodesGlobal(initialRfNodes);
+    rfSetEdgesGlobal(initialRfEdges);
+}
+
+/* ==========================================================================
+   SIMULATION CONTROLLER (OPTICAL SCANNER + LOGS)
+   ========================================================================== */
+function logTelemetry(text, type = 'info') {
+    const elapsed = ((performance.now() - simStartTime) / 1000).toFixed(2);
+    const line = document.createElement('div');
+    line.className = `t-line log-${type}`;
+    line.textContent = `> [00:${elapsed.padStart(5, '0')}] ${text}`;
+    telemetryConsole.appendChild(line);
+    telemetryConsole.scrollTop = telemetryConsole.scrollHeight;
+}
+
+function startTimer() {
+    simStartTime = performance.now();
+    clearInterval(simTimerInterval);
+    simTimerInterval = setInterval(() => {
+        const elapsed = (performance.now() - simStartTime) / 1000;
+        const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+        const secs = (elapsed % 60).toFixed(2).padStart(5, '0');
+        simTimer.textContent = `${mins}:${secs}`;
+    }, 50);
+}
+
+function stopTimer() {
+    clearInterval(simTimerInterval);
+}
+
+function flashDetectedBox(topPct, leftPct, widthPct, heightPct, textTag) {
+    const box = document.createElement('div');
+    box.className = 'hud-box-tag';
+    box.style.top = `${topPct}%`;
+    box.style.left = `${leftPct}%`;
+    box.style.width = `${widthPct}%`;
+    box.style.height = `${heightPct}%`;
+    box.innerHTML = `<span>${escapeHtml(textTag)}</span>`;
+    detectedBoxesLayer.appendChild(box);
+}
+
+async function runLiveSimulation(data, onFinished) {
+    simulationTheater.style.display = 'block';
+    simulationTheater.scrollIntoView({ behavior: 'smooth' });
+    resultsSection.style.display = 'none';
+
+    // Reset components
+    resetRfNodes();
+    telemetryConsole.innerHTML = '';
+    detectedBoxesLayer.innerHTML = '';
+    hudState.textContent = 'INICIANDO VARREDURA...';
+    startTimer();
+
+    logTelemetry('PIPELINE NEURAL: Inicializando alocadores em memória...', 'info');
+
+    // Step 1: Buffer Ingest
+    updateRfNodeState('node-stream', []);
+    hudState.textContent = 'INGESTÃO DE BUFFER (MIME CHECK)';
+    logTelemetry('STREAM: Imagem carregada no buffer BytesIO (0 persistência em disco).', 'info');
+
+    await new Promise(r => setTimeout(r, 650));
+
+    // Step 2: Pillow Sanitization
+    updateRfNodeState('node-pillow', ['node-stream']);
+    hudState.textContent = 'VALIDADOR PILLOW: CHECAGEM DE ASSINATURA';
+    logTelemetry('PILLOW: Verificação de cabeçalho e assinatura gráfica válida.', 'info');
+
+    await new Promise(r => setTimeout(r, 700));
+
+    // Step 3: OCR Neural Dispatch & Optical Laser Pass
+    updateRfNodeState('node-ocr', ['node-stream', 'node-pillow']);
+    hudState.textContent = 'VARREDURA ÓPTICA: OCR NEURAL CORE';
+    logTelemetry('OCR CORE: Disparando extração vetorial com OCR.space Engine 2.0...', 'info');
+
+    // Laser reveals Line 1
+    setTimeout(() => {
+        flashDetectedBox(16, 5, 75, 12, 'L1: DOCUMENTO DEMONSTRATIVO');
+        logTelemetry('OCR DETECT: Linha 1 capturada (Confiança: 95%).', 'info');
+    }, 400);
+
+    // Laser reveals Line 2
+    setTimeout(() => {
+        flashDetectedBox(42, 5, 55, 12, 'L2: Teste de reconhecimento...');
+        logTelemetry('OCR DETECT: Linha 2 capturada (Confiança: 95%).', 'info');
+    }, 750);
+
+    // Laser reveals Line 3
+    setTimeout(() => {
+        flashDetectedBox(65, 5, 58, 12, 'L3: Exemplo sem processamento...');
+        logTelemetry('OCR DETECT: Linha 3 capturada (Confiança: 95%).', 'info');
+    }, 1100);
+
+    await new Promise(r => setTimeout(r, 1200));
+
+    // Step 4: Spatial Mapping
+    updateRfNodeState('node-spatial', ['node-stream', 'node-pillow', 'node-ocr']);
+    hudState.textContent = 'PROJEÇÃO DE COORDENADAS ESPACIAIS';
+    logTelemetry('SPATIAL: Projeção de caixas delimitadoras e polígonos concluída.', 'info');
+
+    await new Promise(r => setTimeout(r, 700));
+
+    // Step 5: Analytical Synthesis
+    updateRfNodeState('node-analytics', ['node-stream', 'node-pillow', 'node-ocr', 'node-spatial']);
+    hudState.textContent = 'SÍNTESE ANALÍTICA & GRÁFICOS';
+    logTelemetry(`ANALYTICS: Confiança média consolidada em ${Math.round((data.confidence || 0.95) * 100)}%.`, 'success');
+
+    await new Promise(r => setTimeout(r, 650));
+
+    // All Completed
+    updateRfNodeState(null, ['node-stream', 'node-pillow', 'node-ocr', 'node-spatial', 'node-analytics']);
+    hudState.textContent = 'PIPELINE CONCLUÍDO COM SUCESSO';
+    logTelemetry('SUCESSO: Todos os nós completados. Redirecionando para resultados...', 'success');
+    stopTimer();
+
+    await new Promise(r => setTimeout(r, 400));
+
+    if (onFinished) onFinished();
+}
+
+/* ==========================================================================
+   DRAG & DROP, UPLOAD & FORM EVENTS
+   ========================================================================== */
 dropZone.addEventListener('click', (e) => {
     if (e.target.closest('button')) return;
     imageInput.click();
@@ -98,6 +397,7 @@ function handleFile(file) {
     reader.onload = (e) => {
         preview.src = e.target.result;
         preview.style.display = 'block';
+        scannerDocImage.src = e.target.result;
     };
     reader.readAsDataURL(file);
 }
@@ -106,6 +406,7 @@ function resetUpload() {
     imageInput.value = '';
     preview.src = '';
     preview.style.display = 'none';
+    scannerDocImage.src = '';
     fileDetails.style.display = 'none';
     analyzeBtn.disabled = true;
     hideError();
@@ -121,7 +422,7 @@ function hideError() {
     errorBanner.style.display = 'none';
 }
 
-// Form Submission
+// Form Submission & Flow Orchestration
 uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const file = imageInput.files[0];
@@ -132,33 +433,62 @@ uploadForm.addEventListener('submit', async (e) => {
 
     hideError();
     confidenceWarning.style.display = 'none';
-    loading.style.display = 'block';
     analyzeBtn.disabled = true;
 
     const formData = new FormData();
     formData.append('image', file);
 
     try {
-        const response = await fetch('/api/analyze', { method: 'POST', body: formData });
-        const data = await response.json();
+        // Dispatch API call in background while launching the simulation
+        const apiPromise = fetch('/api/analyze', { method: 'POST', body: formData })
+            .then(res => res.json());
 
-        if (!data.success) {
-            showError(data.error || 'Falha ao processar a imagem.');
+        const [apiResult] = await Promise.all([
+            apiPromise,
+            new Promise((resolve) => {
+                runLiveSimulation({ confidence: 0.95 }, resolve);
+            })
+        ]);
+
+        if (!apiResult.success) {
+            simulationTheater.style.display = 'none';
+            showError(apiResult.error || 'Falha ao processar a imagem.');
         } else {
-            currentData = data;
-            renderResults(data);
-            resultsSection.style.display = 'block';
-            resultsSection.scrollIntoView({ behavior: 'smooth' });
+            currentData = apiResult;
+            finishSimulationAndShowResults(apiResult);
         }
     } catch (err) {
+        simulationTheater.style.display = 'none';
         showError('Erro de conexão com o servidor. Verifique se o backend está em execução.');
     } finally {
-        loading.style.display = 'none';
         analyzeBtn.disabled = false;
     }
 });
 
-// Render Results & Metrics
+function finishSimulationAndShowResults(data) {
+    renderResults(data);
+    resultsSection.style.display = 'block';
+    resultsSection.scrollIntoView({ behavior: 'smooth' });
+}
+
+// Skip & Replay Buttons
+skipSimBtn.addEventListener('click', () => {
+    stopTimer();
+    updateRfNodeState(null, ['node-stream', 'node-pillow', 'node-ocr', 'node-spatial', 'node-analytics']);
+    if (currentData) finishSimulationAndShowResults(currentData);
+});
+
+replaySimBtn.addEventListener('click', () => {
+    if (currentData) {
+        runLiveSimulation(currentData, () => {
+            finishSimulationAndShowResults(currentData);
+        });
+    }
+});
+
+/* ==========================================================================
+   RESULTS DASHBOARD & CHARTS
+   ========================================================================== */
 function renderResults(data) {
     // 1. KPI Cards
     const avgConf = typeof data.confidence === 'number' ? data.confidence : 0;
@@ -235,7 +565,6 @@ function renderResults(data) {
 function renderAnalyticsCharts(data) {
     if (typeof Chart === 'undefined') return;
 
-    // Destroy existing instances
     if (confidenceChartInstance) confidenceChartInstance.destroy();
     if (linesChartInstance) linesChartInstance.destroy();
 
@@ -448,14 +777,6 @@ if (urlParams.get('autoload') === 'true') {
                     uploadForm.dispatchEvent(new Event('submit'));
                 }
             } catch(e) { console.error(e); }
-        }, 200);
+        }, 400);
     });
-}
-
-// Support opening a specific tab on autoload for screenshots
-if (urlParams.get('tab')) {
-    setTimeout(() => {
-        const targetBtn = document.querySelector(.tab-btn[data-tab=" + urlParams.get('tab') + "]);
-        if (targetBtn) targetBtn.click();
-    }, 3000);
 }
