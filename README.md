@@ -39,7 +39,7 @@
 
 ## 🌟 Highlights
 
-- **Zero Cloud Lock-in**: All Azure dependencies (`azure-ai-documentintelligence`, `azure-core`) and `APP_MODE` logic removed. Runs smoothly with free OCR.space API access.
+- **Zero Cloud Lock-in & Zero Rate Limits**: All Azure cloud dependencies and external rate-limited bottlenecks removed. Uses high-performance local native OCR (`winsdk` / Windows Media OCR) running entirely offline on the machine with zero API keys and zero limits.
 - **Dynamic KPI Dashboard**: Instant visibility into extracted word count, line count, character volume, document resolution, and average confidence score.
 - **Interactive Visual Analytics**: Embedded Chart.js charts rendering confidence distribution and line-by-line word density.
 - **Spatial Bounding Box Inspector**: SVG overlay aligned to original image dimensions with interactive hover tooltips for every recognized segment.
@@ -51,22 +51,17 @@
 
 ## 🖥️ UI & Analytics Showcase
 
-### 1. Real-Time Neural Simulation Theatre (React Flow + Optical Scanner)
-*Live visual simulation triggered upon analysis: features an optical scanner with laser sweeps and real-time bounding box detection alongside an interactive React Flow node pipeline graph with streaming telemetry logs.*
-
-![Real-Time Simulation](docs/screenshots/preview-simulation.png)
-
-### 2. Modern Upload Studio & Drag-and-Drop Zone
+### 1. Modern Upload Studio & Drag-and-Drop Zone
 *Sleek drag-and-drop file interface with format detection, preview thumbnail, and one-click demo test trigger.*
 
 ![Upload Studio](docs/screenshots/preview-home.png)
 
-### 3. Analytical Dashboard & Distribution Charts
+### 2. Analytical Dashboard & Distribution Charts
 *Comprehensive KPI metric cards accompanied by Chart.js confidence doughnuts and line density graphs.*
 
 ![Dashboard & Analytics](docs/screenshots/preview-dashboard.png)
 
-### 4. Spatial Document & Bounding Box Inspection
+### 3. Spatial Document & Bounding Box Inspection
 *Interactive SVG layer displaying detected line coordinates directly over the source document with hover metadata.*
 
 ![Visual Document Inspector](docs/screenshots/preview-visual.png)
