@@ -6,6 +6,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12-blue?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![Flask Framework](https://img.shields.io/badge/framework-Flask%203.x-black?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com/)
 [![OCR Engine](https://img.shields.io/badge/OCR_Engine-Windows%20Native%20OCR%20(Offline)-success?style=for-the-badge&logo=windows&logoColor=white)](https://learn.microsoft.com/en-us/uwp/api/windows.media.ocr)
+[![Live Demo](https://img.shields.io/badge/Live_Demo-GitHub%20Pages-brightgreen?style=for-the-badge&logo=githubpages&logoColor=white)](https://ashish-1911.github.io/Ai-901-ocr/)
 [![Security Verified](https://img.shields.io/badge/Security-In--Memory%20%7C%20Pillow%20Safe-success?style=for-the-badge&logo=shield&logoColor=white)](#-security-privacy--data-safety)
 [![License](https://img.shields.io/badge/License-MIT-purple?style=for-the-badge)](LICENSE)
 
@@ -15,7 +16,7 @@
   A high-performance, modern Optical Character Recognition (OCR) platform built with Python & Flask. Engineered to completely remove proprietary Azure Document Intelligence cloud dependencies in favor of a lightning-fast, zero-cost, 100% local offline OCR engine paired with rich statistical analytics, interactive spatial coordinate inspectors, and multi-format export capabilities.
 </p>
 
-[Quick Start](#-quick-start-windows-powershell) • [Screenshots](#-ui--analytics-showcase) • [Architecture](#-architecture--data-pipeline) • [REST API](#-rest-api-reference) • [Visual Analytics](#-visual-analytics-deep-dive) • [Troubleshooting](#-troubleshooting--faq)
+[🌐 Live Web Demo](https://ashish-1911.github.io/Ai-901-ocr/) • [Quick Start](#-quick-start-windows-powershell) • [Screenshots](#-ui--analytics-showcase) • [Architecture](#-architecture--data-pipeline) • [REST API](#-rest-api-reference) • [Visual Analytics](#-visual-analytics-deep-dive) • [Troubleshooting](#-troubleshooting--faq)
 
 </div>
 

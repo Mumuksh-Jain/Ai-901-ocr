@@ -132,8 +132,11 @@ function initEvents() {
         loadSampleBtnEl.addEventListener('click', async (e) => {
             e.stopPropagation();
             try {
-                const res = await fetch('/exemplos/documento_demo.png');
-                if (!res.ok) throw new Error('Could not load the demo image.');
+                const samplePath = window.location.pathname.endsWith('/') 
+                    ? 'exemplos/documento_demo.png' 
+                    : (window.location.pathname.includes('/Ai-901-ocr') ? 'exemplos/documento_demo.png' : '/exemplos/documento_demo.png');
+                const res = await fetch(samplePath).catch(() => fetch('exemplos/documento_demo.png'));
+                if (!res || !res.ok) throw new Error('Could not load the demo image.');
                 const blob = await res.blob();
                 const file = new File([blob], 'documento_demo.png', { type: 'image/png' });
                 const dt = new DataTransfer();
@@ -168,22 +171,37 @@ function initEvents() {
             formData.append('image', file);
 
             try {
-                const res = await fetch('/api/analyze', { method: 'POST', body: formData });
-                const apiResult = await res.json();
+                let apiResult = null;
+                try {
+                    const res = await fetch('/api/analyze', { method: 'POST', body: formData });
+                    if (res.ok) {
+                        apiResult = await res.json();
+                    } else if (res.status !== 404) {
+                        const errJson = await res.json().catch(() => ({}));
+                        throw new Error(errJson.error || `HTTP ${res.status}`);
+                    }
+                } catch (netErr) {
+                    // Endpoint unreachable or static host (e.g. GitHub Pages)
+                }
 
-                if (!apiResult.success) {
-                    showError(apiResult.error || 'Failed to process image.');
-                } else {
-                    currentData = apiResult;
-                    renderResults(apiResult);
-                    const results = el('results');
-                    if (results) {
-                        results.style.display = 'block';
-                        results.scrollIntoView({ behavior: 'smooth' });
+                // If on static host (GitHub Pages) or demo file, provide client demo fallback
+                if (!apiResult || !apiResult.success) {
+                    if (file.name.toLowerCase().includes('demo') || window.location.hostname.includes('github.io')) {
+                        apiResult = getClientSideDemoResult(file.name);
+                    } else {
+                        throw new Error('Server connection error. Please verify the backend is running locally.');
                     }
                 }
+
+                currentData = apiResult;
+                renderResults(apiResult);
+                const results = el('results');
+                if (results) {
+                    results.style.display = 'block';
+                    results.scrollIntoView({ behavior: 'smooth' });
+                }
             } catch (err) {
-                showError('Server connection error. Please verify the backend is running.');
+                showError(err.message || 'Server connection error.');
             } finally {
                 if (loadingEl) loadingEl.style.display = 'none';
                 if (analyzeBtnEl) analyzeBtnEl.disabled = false;
@@ -254,7 +272,7 @@ function initEvents() {
     if (urlParams.get('autoload') === 'true' && imageInputEl && uploadFormEl) {
         setTimeout(async () => {
             try {
-                const res = await fetch('/exemplos/documento_demo.png');
+                const res = await fetch('exemplos/documento_demo.png').catch(() => fetch('/exemplos/documento_demo.png'));
                 if (res.ok) {
                     const blob = await res.blob();
                     const file = new File([blob], 'documento_demo.png', { type: 'image/png' });
@@ -515,6 +533,61 @@ function positionTooltip(e) {
 function hideTooltip() {
     const tooltip = el('hoverTooltip');
     if (tooltip) tooltip.style.display = 'none';
+}
+
+function getClientSideDemoResult(filename) {
+    const lines = [
+        {
+            content: "DOCUMENTO DEMONSTRATIVO AI-901",
+            confidence: 0.95,
+            bounding_box: [[36, 51], [587, 51], [587, 72], [36, 72]]
+        },
+        {
+            content: "Teste de reconhecimento de texto",
+            confidence: 0.95,
+            bounding_box: [[33, 130], [424, 130], [424, 147], [33, 147]]
+        },
+        {
+            content: "Exemplo sem processamento Azure",
+            confidence: 0.95,
+            bounding_box: [[35, 200], [444, 200], [444, 217], [35, 217]]
+        }
+    ];
+
+    const words = [
+        { content: "DOCUMENTO", confidence: 0.95, bounding_box: [[36, 51], [223, 51], [223, 72], [36, 72]] },
+        { content: "DEMONSTRATIVO", confidence: 0.95, bounding_box: [[237, 51], [484, 51], [484, 72], [237, 72]] },
+        { content: "AI-901", confidence: 0.95, bounding_box: [[495, 51], [587, 51], [587, 72], [495, 72]] },
+        { content: "Teste", confidence: 0.95, bounding_box: [[33, 130], [91, 130], [91, 147], [33, 147]] },
+        { content: "de", confidence: 0.95, bounding_box: [[101, 130], [127, 130], [127, 147], [101, 147]] },
+        { content: "reconhecimento", confidence: 0.95, bounding_box: [[138, 130], [321, 130], [321, 147], [138, 147]] },
+        { content: "de", confidence: 0.95, bounding_box: [[331, 130], [357, 130], [357, 147], [331, 147]] },
+        { content: "texto", confidence: 0.95, bounding_box: [[367, 130], [424, 130], [424, 147], [367, 147]] },
+        { content: "Exemplo", confidence: 0.95, bounding_box: [[35, 200], [131, 200], [131, 217], [35, 217]] },
+        { content: "sem", confidence: 0.95, bounding_box: [[140, 204], [187, 204], [187, 217], [140, 217]] },
+        { content: "processamento", confidence: 0.95, bounding_box: [[197, 204], [371, 204], [371, 217], [197, 217]] },
+        { content: "Azure", confidence: 0.95, bounding_box: [[379, 200], [444, 200], [444, 217], [379, 217]] }
+    ];
+
+    return {
+        success: true,
+        confidence: 0.95,
+        content: "DOCUMENTO DEMONSTRATIVO AI-901\nTeste de reconhecimento de texto\nExemplo sem processamento Azure",
+        engine: "GitHub Pages Live Showcase (Client-Side)",
+        lines: lines,
+        words: words,
+        pages: [
+            {
+                page_number: 1,
+                width: 780,
+                height: 320,
+                unit: "pixel",
+                lines: lines,
+                words: words
+            }
+        ],
+        styles: []
+    };
 }
 
 // Initialise
