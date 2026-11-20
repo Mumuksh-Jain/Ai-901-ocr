@@ -1,16 +1,14 @@
 // OCR Document Intelligence — Interactive Analytics & React Flow Live Simulation
-import React, { useState, useEffect } from 'react';
-import ReactDOM from 'react-dom/client';
-import ReactFlow, { Background, Controls, MiniMap } from 'reactflow';
-
 let currentData = null;
 let confidenceChartInstance = null;
 let linesChartInstance = null;
-let simulationInterval = null;
 let simTimerInterval = null;
 let simStartTime = 0;
+
+// React Flow state hooks
 let rfSetNodesGlobal = null;
 let rfSetEdgesGlobal = null;
+let isRfMounted = false;
 
 // Escaping for XSS prevention
 function escapeHtml(value) {
@@ -47,170 +45,238 @@ const toggleBoxes = document.getElementById('toggleBoxes');
 const boundingBoxOverlay = document.getElementById('boundingBoxOverlay');
 const resultImage = document.getElementById('resultImage');
 const hoverTooltip = document.getElementById('hoverTooltip');
+const rfContainer = document.getElementById('reactflow-mount');
 
 /* ==========================================================================
-   REACT FLOW PIPELINE COMPONENT
+   PIPELINE NODES DATA SPECIFICATION
    ========================================================================== */
-const initialRfNodes = [
+const pipelineNodesData = [
     {
         id: 'node-stream',
-        position: { x: 20, y: 40 },
-        data: {
-            title: '1. Ingestão Buffer',
-            desc: 'Stream em memória & checagem MIME',
-            status: 'standby',
-            icon: '📁'
-        },
-        type: 'customNode'
+        x: 20,
+        y: 40,
+        icon: '📁',
+        title: '1. Ingestão Buffer',
+        desc: 'Stream em memória & checagem MIME'
     },
     {
         id: 'node-pillow',
-        position: { x: 220, y: 40 },
-        data: {
-            title: '2. Validador Pillow',
-            desc: 'Verificação de integridade sem disco',
-            status: 'standby',
-            icon: '🛡️'
-        },
-        type: 'customNode'
+        x: 220,
+        y: 40,
+        icon: '🛡️',
+        title: '2. Validador Pillow',
+        desc: 'Verificação de integridade sem disco'
     },
     {
         id: 'node-ocr',
-        position: { x: 420, y: 40 },
-        data: {
-            title: '3. OCR Neural Core',
-            desc: 'OCR.space Engine 2.0 (tokens & layout)',
-            status: 'standby',
-            icon: '🧠'
-        },
-        type: 'customNode'
+        x: 420,
+        y: 40,
+        icon: '🧠',
+        title: '3. OCR Neural Core',
+        desc: 'OCR.space Engine 2.0 (tokens & layout)'
     },
     {
         id: 'node-spatial',
-        position: { x: 420, y: 200 },
-        data: {
-            title: '4. Geometria Espacial',
-            desc: 'Projeção de polígonos & caixas',
-            status: 'standby',
-            icon: '📐'
-        },
-        type: 'customNode'
+        x: 420,
+        y: 200,
+        icon: '📐',
+        title: '4. Geometria Espacial',
+        desc: 'Projeção de polígonos & caixas'
     },
     {
         id: 'node-analytics',
-        position: { x: 220, y: 200 },
-        data: {
-            title: '5. Síntese Analítica',
-            desc: 'Métricas de confiança & gráficos',
-            status: 'standby',
-            icon: '📊'
-        },
-        type: 'customNode'
+        x: 220,
+        y: 200,
+        icon: '📊',
+        title: '5. Síntese Analítica',
+        desc: 'Métricas de confiança & gráficos'
     }
 ];
 
-const initialRfEdges = [
-    { id: 'e1-2', source: 'node-stream', target: 'node-pillow', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
-    { id: 'e2-3', source: 'node-pillow', target: 'node-ocr', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
-    { id: 'e3-4', source: 'node-ocr', target: 'node-spatial', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
-    { id: 'e4-5', source: 'node-spatial', target: 'node-analytics', animated: false, style: { stroke: '#334155', strokeWidth: 2 } }
-];
+/* ==========================================================================
+   DYNAMIC REACT FLOW LOADER (No static top-level imports)
+   ========================================================================== */
+async function loadReactFlow() {
+    try {
+        const [reactMod, reactDomMod, rfMod] = await Promise.all([
+            import('https://esm.sh/react@18.2.0'),
+            import('https://esm.sh/react-dom@18.2.0/client'),
+            import('https://esm.sh/reactflow@11.11.4?deps=react@18.2.0,react-dom@18.2.0')
+        ]);
 
-function CustomRfNode({ data }) {
-    let statusText = '⏳ Em Espera';
-    let cardClass = 'rf-node-card';
-    if (data.status === 'active') {
-        statusText = '⚡ Processando...';
-        cardClass += ' active';
-    } else if (data.status === 'completed') {
-        statusText = '✅ Concluído';
-        cardClass += ' completed';
+        const React = reactMod.default || reactMod;
+        const ReactDOM = reactDomMod.default || reactDomMod;
+        const ReactFlow = rfMod.default || rfMod.ReactFlow;
+        const { Background, Controls, MiniMap } = rfMod;
+
+        const initialNodes = pipelineNodesData.map(n => ({
+            id: n.id,
+            position: { x: n.x, y: n.y },
+            data: { title: n.title, desc: n.desc, icon: n.icon, status: 'standby' },
+            type: 'customNode'
+        }));
+
+        const initialEdges = [
+            { id: 'e1-2', source: 'node-stream', target: 'node-pillow', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
+            { id: 'e2-3', source: 'node-pillow', target: 'node-ocr', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
+            { id: 'e3-4', source: 'node-ocr', target: 'node-spatial', animated: false, style: { stroke: '#334155', strokeWidth: 2 } },
+            { id: 'e4-5', source: 'node-spatial', target: 'node-analytics', animated: false, style: { stroke: '#334155', strokeWidth: 2 } }
+        ];
+
+        function CustomRfNode({ data }) {
+            let statusText = '⏳ Em Espera';
+            let cardClass = 'rf-node-card';
+            if (data.status === 'active') {
+                statusText = '⚡ Processando...';
+                cardClass += ' active';
+            } else if (data.status === 'completed') {
+                statusText = '✅ Concluído';
+                cardClass += ' completed';
+            }
+
+            return React.createElement('div', { className: cardClass },
+                React.createElement('div', { className: 'rf-node-title' },
+                    React.createElement('span', null, data.icon),
+                    React.createElement('span', null, data.title)
+                ),
+                React.createElement('div', { className: 'rf-node-desc' }, data.desc),
+                React.createElement('div', { className: 'rf-node-status' }, statusText)
+            );
+        }
+
+        const nodeTypes = { customNode: CustomRfNode };
+
+        function ReactFlowApp() {
+            const [nodes, setNodes] = React.useState(initialNodes);
+            const [edges, setEdges] = React.useState(initialEdges);
+
+            React.useEffect(() => {
+                rfSetNodesGlobal = setNodes;
+                rfSetEdgesGlobal = setEdges;
+                isRfMounted = true;
+            }, []);
+
+            return React.createElement('div', { style: { width: '100%', height: '100%' } },
+                React.createElement(ReactFlow, {
+                    nodes: nodes,
+                    edges: edges,
+                    nodeTypes: nodeTypes,
+                    fitView: true,
+                    fitViewOptions: { padding: 0.2 },
+                    attributionPosition: 'bottom-right'
+                },
+                    React.createElement(Background, { color: '#1e293b', gap: 16, size: 1.2 }),
+                    React.createElement(Controls, null),
+                    React.createElement(MiniMap, {
+                        nodeStrokeColor: '#3b82f6',
+                        nodeColor: '#1e293b',
+                        maskColor: 'rgba(2, 6, 23, 0.7)'
+                    })
+                )
+            );
+        }
+
+        if (rfContainer) {
+            rfContainer.innerHTML = '';
+            const root = ReactDOM.createRoot(rfContainer);
+            root.render(React.createElement(ReactFlowApp));
+        }
+    } catch (err) {
+        console.warn('React Flow CDN load notice, running native pipeline renderer:', err);
+        renderNativePipeline();
     }
-
-    return React.createElement('div', { className: cardClass },
-        React.createElement('div', { className: 'rf-node-title' },
-            React.createElement('span', null, data.icon),
-            React.createElement('span', null, data.title)
-        ),
-        React.createElement('div', { className: 'rf-node-desc' }, data.desc),
-        React.createElement('div', { className: 'rf-node-status' }, statusText)
-    );
 }
 
-const nodeTypes = { customNode: CustomRfNode };
+// Native Canvas/HTML fallback if CDN has delay
+function renderNativePipeline() {
+    if (!rfContainer || isRfMounted) return;
+    rfContainer.innerHTML = `
+        <div style="position:relative; width:100%; height:100%; background:#090e1a; overflow:hidden;">
+            <svg style="position:absolute; inset:0; width:100%; height:100%; pointer-events:none;">
+                <defs>
+                    <linearGradient id="edgeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#3b82f6"/>
+                        <stop offset="100%" stop-color="#10b981"/>
+                    </linearGradient>
+                </defs>
+                <path id="nedge-1" d="M 180 80 L 220 80" stroke="#334155" stroke-width="2" stroke-dasharray="5 5"/>
+                <path id="nedge-2" d="M 380 80 L 420 80" stroke="#334155" stroke-width="2" stroke-dasharray="5 5"/>
+                <path id="nedge-3" d="M 500 130 L 500 200" stroke="#334155" stroke-width="2" stroke-dasharray="5 5"/>
+                <path id="nedge-4" d="M 420 240 L 380 240" stroke="#334155" stroke-width="2" stroke-dasharray="5 5"/>
+            </svg>
+            ${pipelineNodesData.map(n => `
+                <div id="native-${n.id}" class="rf-node-card" style="position:absolute; left:${n.x}px; top:${n.y}px;">
+                    <div class="rf-node-title"><span>${n.icon}</span> <span>${n.title}</span></div>
+                    <div class="rf-node-desc">${n.desc}</div>
+                    <div class="rf-node-status" id="native-status-${n.id}">⏳ Em Espera</div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
 
-function ReactFlowApp() {
-    const [nodes, setNodes] = useState(initialRfNodes);
-    const [edges, setEdges] = useState(initialRfEdges);
+// Initialise React Flow gracefully
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadReactFlow);
+} else {
+    loadReactFlow();
+}
 
-    useEffect(() => {
-        rfSetNodesGlobal = setNodes;
-        rfSetEdgesGlobal = setEdges;
-    }, []);
-
-    return React.createElement('div', { style: { width: '100%', height: '100%' } },
-        React.createElement(ReactFlow, {
-            nodes: nodes,
-            edges: edges,
-            nodeTypes: nodeTypes,
-            fitView: true,
-            fitViewOptions: { padding: 0.2 },
-            attributionPosition: 'bottom-right'
-        },
-            React.createElement(Background, { color: '#1e293b', gap: 16, size: 1.2 }),
-            React.createElement(Controls, null),
-            React.createElement(MiniMap, {
-                nodeStrokeColor: '#3b82f6',
-                nodeColor: '#1e293b',
-                maskColor: 'rgba(2, 6, 23, 0.7)'
+// Update nodes and edges during simulation
+function updatePipelineNodeState(activeNodeId, completedNodeIds = []) {
+    // 1. Update React Flow if ready
+    if (isRfMounted && rfSetNodesGlobal && rfSetEdgesGlobal) {
+        rfSetNodesGlobal((prevNodes) =>
+            prevNodes.map((node) => {
+                let status = 'standby';
+                if (node.id === activeNodeId) status = 'active';
+                else if (completedNodeIds.includes(node.id)) status = 'completed';
+                return {
+                    ...node,
+                    data: { ...node.data, status }
+                };
             })
-        )
-    );
+        );
+
+        rfSetEdgesGlobal((prevEdges) =>
+            prevEdges.map((edge) => {
+                const isCompleted = completedNodeIds.includes(edge.source) && completedNodeIds.includes(edge.target);
+                const isActive = completedNodeIds.includes(edge.source) && edge.target === activeNodeId;
+                return {
+                    ...edge,
+                    animated: isActive || isCompleted,
+                    style: {
+                        stroke: isCompleted ? '#10b981' : (isActive ? '#3b82f6' : '#334155'),
+                        strokeWidth: isCompleted || isActive ? 2.5 : 2
+                    }
+                };
+            })
+        );
+    }
+
+    // 2. Synchronize Native DOM elements if active
+    pipelineNodesData.forEach(n => {
+        const el = document.getElementById(`native-${n.id}`);
+        const st = document.getElementById(`native-status-${n.id}`);
+        if (!el || !st) return;
+        el.classList.remove('active', 'completed');
+        if (n.id === activeNodeId) {
+            el.classList.add('active');
+            st.textContent = '⚡ Processando...';
+            st.style.color = '#60a5fa';
+        } else if (completedNodeIds.includes(n.id)) {
+            el.classList.add('completed');
+            st.textContent = '✅ Concluído';
+            st.style.color = '#34d399';
+        } else {
+            st.textContent = '⏳ Em Espera';
+            st.style.color = '#64748b';
+        }
+    });
 }
 
-// Mount React Flow
-const rfContainer = document.getElementById('reactflow-mount');
-if (rfContainer) {
-    const root = ReactDOM.createRoot(rfContainer);
-    root.render(React.createElement(ReactFlowApp));
-}
-
-// Helper to update React Flow nodes & edges during simulation
-function updateRfNodeState(activeNodeId, completedNodeIds = []) {
-    if (!rfSetNodesGlobal || !rfSetEdgesGlobal) return;
-
-    rfSetNodesGlobal((prevNodes) =>
-        prevNodes.map((node) => {
-            let status = 'standby';
-            if (node.id === activeNodeId) status = 'active';
-            else if (completedNodeIds.includes(node.id)) status = 'completed';
-            return {
-                ...node,
-                data: { ...node.data, status }
-            };
-        })
-    );
-
-    rfSetEdgesGlobal((prevEdges) =>
-        prevEdges.map((edge) => {
-            const isCompleted = completedNodeIds.includes(edge.source) && completedNodeIds.includes(edge.target);
-            const isActive = completedNodeIds.includes(edge.source) && edge.target === activeNodeId;
-            return {
-                ...edge,
-                animated: isActive || isCompleted,
-                style: {
-                    stroke: isCompleted ? '#10b981' : (isActive ? '#3b82f6' : '#334155'),
-                    strokeWidth: isCompleted || isActive ? 2.5 : 2
-                }
-            };
-        })
-    );
-}
-
-function resetRfNodes() {
-    if (!rfSetNodesGlobal || !rfSetEdgesGlobal) return;
-    rfSetNodesGlobal(initialRfNodes);
-    rfSetEdgesGlobal(initialRfEdges);
+function resetPipelineNodes() {
+    updatePipelineNodeState(null, []);
 }
 
 /* ==========================================================================
@@ -257,7 +323,7 @@ async function runLiveSimulation(data, onFinished) {
     resultsSection.style.display = 'none';
 
     // Reset components
-    resetRfNodes();
+    resetPipelineNodes();
     telemetryConsole.innerHTML = '';
     detectedBoxesLayer.innerHTML = '';
     hudState.textContent = 'INICIANDO VARREDURA...';
@@ -266,21 +332,21 @@ async function runLiveSimulation(data, onFinished) {
     logTelemetry('PIPELINE NEURAL: Inicializando alocadores em memória...', 'info');
 
     // Step 1: Buffer Ingest
-    updateRfNodeState('node-stream', []);
+    updatePipelineNodeState('node-stream', []);
     hudState.textContent = 'INGESTÃO DE BUFFER (MIME CHECK)';
     logTelemetry('STREAM: Imagem carregada no buffer BytesIO (0 persistência em disco).', 'info');
 
     await new Promise(r => setTimeout(r, 650));
 
     // Step 2: Pillow Sanitization
-    updateRfNodeState('node-pillow', ['node-stream']);
+    updatePipelineNodeState('node-pillow', ['node-stream']);
     hudState.textContent = 'VALIDADOR PILLOW: CHECAGEM DE ASSINATURA';
     logTelemetry('PILLOW: Verificação de cabeçalho e assinatura gráfica válida.', 'info');
 
     await new Promise(r => setTimeout(r, 700));
 
     // Step 3: OCR Neural Dispatch & Optical Laser Pass
-    updateRfNodeState('node-ocr', ['node-stream', 'node-pillow']);
+    updatePipelineNodeState('node-ocr', ['node-stream', 'node-pillow']);
     hudState.textContent = 'VARREDURA ÓPTICA: OCR NEURAL CORE';
     logTelemetry('OCR CORE: Disparando extração vetorial com OCR.space Engine 2.0...', 'info');
 
@@ -305,21 +371,21 @@ async function runLiveSimulation(data, onFinished) {
     await new Promise(r => setTimeout(r, 1200));
 
     // Step 4: Spatial Mapping
-    updateRfNodeState('node-spatial', ['node-stream', 'node-pillow', 'node-ocr']);
+    updatePipelineNodeState('node-spatial', ['node-stream', 'node-pillow', 'node-ocr']);
     hudState.textContent = 'PROJEÇÃO DE COORDENADAS ESPACIAIS';
     logTelemetry('SPATIAL: Projeção de caixas delimitadoras e polígonos concluída.', 'info');
 
     await new Promise(r => setTimeout(r, 700));
 
     // Step 5: Analytical Synthesis
-    updateRfNodeState('node-analytics', ['node-stream', 'node-pillow', 'node-ocr', 'node-spatial']);
+    updatePipelineNodeState('node-analytics', ['node-stream', 'node-pillow', 'node-ocr', 'node-spatial']);
     hudState.textContent = 'SÍNTESE ANALÍTICA & GRÁFICOS';
     logTelemetry(`ANALYTICS: Confiança média consolidada em ${Math.round((data.confidence || 0.95) * 100)}%.`, 'success');
 
     await new Promise(r => setTimeout(r, 650));
 
     // All Completed
-    updateRfNodeState(null, ['node-stream', 'node-pillow', 'node-ocr', 'node-spatial', 'node-analytics']);
+    updatePipelineNodeState(null, ['node-stream', 'node-pillow', 'node-ocr', 'node-spatial', 'node-analytics']);
     hudState.textContent = 'PIPELINE CONCLUÍDO COM SUCESSO';
     logTelemetry('SUCESSO: Todos os nós completados. Redirecionando para resultados...', 'success');
     stopTimer();
@@ -439,7 +505,6 @@ uploadForm.addEventListener('submit', async (e) => {
     formData.append('image', file);
 
     try {
-        // Dispatch API call in background while launching the simulation
         const apiPromise = fetch('/api/analyze', { method: 'POST', body: formData })
             .then(res => res.json());
 
@@ -474,7 +539,7 @@ function finishSimulationAndShowResults(data) {
 // Skip & Replay Buttons
 skipSimBtn.addEventListener('click', () => {
     stopTimer();
-    updateRfNodeState(null, ['node-stream', 'node-pillow', 'node-ocr', 'node-spatial', 'node-analytics']);
+    updatePipelineNodeState(null, ['node-stream', 'node-pillow', 'node-ocr', 'node-spatial', 'node-analytics']);
     if (currentData) finishSimulationAndShowResults(currentData);
 });
 
@@ -759,24 +824,3 @@ document.getElementById('copyJsonBtn').addEventListener('click', () => {
     navigator.clipboard.writeText(JSON.stringify(currentData, null, 2));
     alert('JSON copiado com sucesso!');
 });
-
-// Auto-run for demonstrations / visual verification
-const urlParams = new URLSearchParams(window.location.search);
-if (urlParams.get('autoload') === 'true') {
-    window.addEventListener('DOMContentLoaded', () => {
-        setTimeout(async () => {
-            try {
-                const res = await fetch('/exemplos/documento_demo.png');
-                if (res.ok) {
-                    const blob = await res.blob();
-                    const file = new File([blob], 'documento_demo.png', { type: 'image/png' });
-                    const dt = new DataTransfer();
-                    dt.items.add(file);
-                    imageInput.files = dt.files;
-                    handleFile(file);
-                    uploadForm.dispatchEvent(new Event('submit'));
-                }
-            } catch(e) { console.error(e); }
-        }, 400);
-    });
-}
